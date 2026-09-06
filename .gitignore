@@ -1,0 +1,24 @@
+# --- Python / Django ---
+backend/venv/
+backend/.venv/
+backend/**/__pycache__/
+*.pyc
+backend/db.sqlite3
+backend/.env
+backend/staticfiles/
+
+# --- Machine learning artifacts ---
+backend/ml_models/weights/*.joblib
+backend/ml_models/weights/*.pkl
+backend/ml_models/notebooks/.ipynb_checkpoints/
+
+# --- Node / React ---
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

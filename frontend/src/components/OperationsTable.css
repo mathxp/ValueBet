@@ -1,0 +1,79 @@
+.operations-table__scroll {
+  overflow-x: auto;
+}
+
+.operations-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.operations-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gridline);
+  white-space: nowrap;
+}
+
+.operations-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gridline);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.operations-table__empty {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.is-positive {
+  color: var(--success-text);
+}
+
+.is-negative {
+  color: var(--status-critical);
+}
+
+.operations-table__apuesta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+}
+
+.operations-table__mercado {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.operations-table__acciones {
+  display: flex;
+  gap: 6px;
+}
+
+.operations-table__acciones button {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.operations-table__acciones button:hover:not(:disabled) {
+  border-color: var(--series-1);
+  color: var(--series-1);
+}
+
+.operations-table__acciones button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

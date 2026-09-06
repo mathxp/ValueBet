@@ -1,0 +1,37 @@
+.info-box {
+  display: flex;
+  gap: 12px;
+  background: color-mix(in srgb, var(--series-1) 8%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--series-1) 25%, transparent);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.info-box__icon {
+  flex-shrink: 0;
+  color: var(--series-1);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.info-box__title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.info-box__body p {
+  margin: 0 0 6px;
+}
+
+.info-box__body p:last-child {
+  margin-bottom: 0;
+}
+
+.info-box__body strong {
+  color: var(--text-primary);
+}

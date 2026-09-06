@@ -1,0 +1,60 @@
+.pnl-chart {
+  position: relative;
+}
+
+.pnl-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pnl-chart__empty {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.pnl-chart__baseline {
+  stroke: var(--baseline);
+  stroke-width: 1;
+}
+
+.pnl-chart__line {
+  stroke: var(--series-1);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pnl-chart__crosshair {
+  stroke: var(--gridline);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.pnl-chart__dot {
+  fill: var(--surface-1);
+  stroke: var(--series-1);
+  stroke-width: 2;
+}
+
+.pnl-chart__tooltip {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.pnl-chart__tooltip span {
+  color: var(--text-muted);
+}
