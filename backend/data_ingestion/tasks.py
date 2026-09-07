@@ -21,7 +21,18 @@ _SELECCION_POR_VALOR = {"Home": "LOCAL", "Draw": "EMPATE", "Away": "VISITANTE"}
 # error en la proyección de xG. Las líneas extremas (0.5, 5.5+) casi no se
 # ofrecen en la práctica y ahí un error chico en el xG cambia mucho la
 # probabilidad de la cola -- se descartan por poco confiables.
-_LINEAS_OVER_UNDER_VALIDAS = {"1.5", "2.5", "3.5", "4.5"}
+#
+# 4.5 se sacó de la lista (antes estaba) tras verificar en la práctica que el
+# proyector de xG (team_ratings.py:proyectar_xg) puede llegar a un total
+# combinado alto multiplicando dos DEFENSAS flojas entre sí, sin que ninguno
+# de los dos equipos tenga un ataque realmente destacado -- ej. Limache
+# (ataque 1.76) vs Cobresal (ataque 1.41, promedio de liga 1.44) proyectó 4.13
+# goles combinados y terminó en un resultado muy por debajo. Requerir 5+
+# goles ya es un evento de cola incluso para el promedio real de la liga
+# (2.7 goles/partido) -- no vale la pena confiar ahí en una interacción
+# multiplicativa que ninguno de los dos equipos respalda con su propio
+# historial de gol.
+LINEAS_OVER_UNDER_VALIDAS = {"1.5", "2.5", "3.5"}
 
 # Códigos de estado de fixture de api-football -> nuestro Partido.Estado.
 _ESTADO_POR_CODIGO = {
@@ -238,7 +249,7 @@ def fetch_and_store_odds(partido_id: int) -> int:
                 continue
 
             direccion, linea = partes[0], partes[1]
-            if linea not in _LINEAS_OVER_UNDER_VALIDAS:
+            if linea not in LINEAS_OVER_UNDER_VALIDAS:
                 continue
             seleccion = "OVER" if direccion == "Over" else "UNDER" if direccion == "Under" else None
             if not seleccion:

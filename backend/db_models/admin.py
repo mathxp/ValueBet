@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 
-from .models import Equipo, HistorialCuotas, Operacion, Partido
+from .models import ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
 
 
 @admin.register(Equipo)
@@ -20,12 +20,16 @@ class PartidoAdminForm(forms.ModelForm):
 
     xg_local_manual = forms.FloatField(
         required=False,
-        label="xG local (investigación manual)",
-        help_text="Pegá acá el xG que te haya estimado Claude/Gemini para el equipo local.",
+        label="Goles esperados proyectados, local (investigación manual)",
+        help_text=(
+            "Pegá acá el valor que te haya estimado Claude/Gemini para el equipo local -- no es "
+            "xG oficial (el que se calcula por calidad de tiro), es una estimación basada en "
+            "rendimiento reciente."
+        ),
     )
     xg_visitante_manual = forms.FloatField(
         required=False,
-        label="xG visitante (investigación manual)",
+        label="Goles esperados proyectados, visitante (investigación manual)",
         help_text="Ídem para el equipo visitante.",
     )
 
@@ -61,7 +65,7 @@ class PartidoAdminForm(forms.ModelForm):
 @admin.register(Partido)
 class PartidoAdmin(admin.ModelAdmin):
     form = PartidoAdminForm
-    list_display = ("equipo_local", "equipo_visitante", "fecha_hora", "estado", "xg_proyectado")
+    list_display = ("equipo_local", "equipo_visitante", "fecha_hora", "estado", "goles_esperados_proyectados")
     list_filter = ("estado", "liga")
     search_fields = ("equipo_local__nombre", "equipo_visitante__nombre")
     fields = (
@@ -78,14 +82,27 @@ class PartidoAdmin(admin.ModelAdmin):
         "metricas_avanzadas",
     )
 
-    @admin.display(description="xG proyectado")
-    def xg_proyectado(self, obj):
+    @admin.display(description="Goles esperados proyectados")
+    def goles_esperados_proyectados(self, obj):
         xg_local = obj.metricas_avanzadas.get("xg_local")
         xg_visitante = obj.metricas_avanzadas.get("xg_visitante")
         if xg_local is None:
             return "—"
         fuente = obj.metricas_avanzadas.get("xg_fuente", "?")
         return f"{xg_local} – {xg_visitante} ({fuente})"
+
+
+@admin.register(ConfiguracionRiesgo)
+class ConfiguracionRiesgoAdmin(admin.ModelAdmin):
+    """Fila única -- también editable desde el dashboard (pestaña Configuración)."""
+
+    list_display = ("paper_bankroll", "kelly_fraction", "max_stake_per_bet", "min_edge_threshold", "actualizado_en")
+
+    def has_add_permission(self, request):
+        return not ConfiguracionRiesgo.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(HistorialCuotas)
@@ -115,7 +132,7 @@ class OperacionAdmin(admin.ModelAdmin):
         "creado_en",
     )
     list_filter = ("estado", "mercado")
-    actions = ["marcar_aceptada", "marcar_descartada", "marcar_ganada", "marcar_perdida"]
+    actions = ["marcar_aceptada", "marcar_descartada", "marcar_ganada", "marcar_perdida", "marcar_anulada"]
 
     @admin.action(description="Marcar como aceptada (la aposté)")
     def marcar_aceptada(self, request, queryset):
@@ -146,3 +163,11 @@ class OperacionAdmin(admin.ModelAdmin):
             operacion.marcar_perdida()
             actualizadas += 1
         self.message_user(request, f"{actualizadas} recomendación(es) marcada(s) como perdida(s).")
+
+    @admin.action(description="Anular (push -- devuelve el stake, sin efecto en el PNL)")
+    def marcar_anulada(self, request, queryset):
+        actualizadas = 0
+        for operacion in queryset.filter(estado=Operacion.Estado.ACEPTADA):
+            operacion.marcar_anulada()
+            actualizadas += 1
+        self.message_user(request, f"{actualizadas} recomendación(es) anulada(s).")

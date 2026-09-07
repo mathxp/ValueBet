@@ -31,16 +31,21 @@ export default function Predicciones() {
       <header className="page-header">
         <h1>Predicciones — Primera División de Chile</h1>
         <p className="page-header__subtitle">
-          Goles esperados (xG) proyectados para los próximos partidos, calculados con un modelo
+          Goles esperados proyectados para los próximos partidos, calculados con un modelo
           estadístico propio.
         </p>
       </header>
 
-      <InfoBox title="¿Qué es el xG y de dónde sale?">
+      <InfoBox title="¿Qué son los Goles Esperados Proyectados y de dónde salen?">
         <p>
-          El <strong>xG (goles esperados)</strong> es una estimación de cuántos goles debería
-          anotar cada equipo según su rendimiento real reciente, no según el resultado de un solo
-          partido puntual.
+          <strong>Goles Esperados Proyectados</strong> (a veces llamado <strong>xG</strong> en la
+          jerga del fútbol) es una estimación de cuántos goles debería anotar cada equipo según su
+          rendimiento real reciente, no según el resultado de un solo partido puntual.{" "}
+          <strong>
+            No es el xG oficial (el que se calcula analizando la calidad de cada tiro) — acá no
+            tenemos ese dato para esta liga
+          </strong>{" "}
+          (ver <strong>Equipos</strong> para el detalle del rating detrás de cada proyección).
         </p>
         <p>
           Se calcula con un <strong>rating de ataque y defensa por equipo</strong>, construido a
@@ -51,9 +56,10 @@ export default function Predicciones() {
           pestaña <strong>Equipos</strong>.
         </p>
         <p>
-          El xG por sí solo no dice quién gana: con esos dos números se calcula además la
-          probabilidad de victoria de cada equipo (y de empate), que es lo que se muestra como{" "}
-          <strong>&quot;Favorito&quot;</strong> en cada tarjeta.
+          Los Goles Esperados Proyectados por sí solos no dicen quién gana: con esos dos números
+          se calcula además la probabilidad de victoria de cada equipo (y de empate), que es lo
+          que se muestra como <strong>&quot;Favorito&quot;</strong> en cada tarjeta. Ninguno de los
+          dos números es una certeza — son estimaciones estadísticas, no un pronóstico garantizado.
         </p>
       </InfoBox>
 

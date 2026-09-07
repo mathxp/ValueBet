@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from db_models.models import AnalisisPartido, Equipo, Operacion, Partido
+from db_models.models import AnalisisPartido, CalibracionMercado, Equipo, Operacion, Partido
 from trading_engine.exchange_client import MarketPrice
 from trading_engine.scanner import OddsScanner
 
@@ -75,7 +75,10 @@ class OddsScannerTests(TestCase):
                 market_id=str(self.partido.id),
                 mercado="1X2",
                 seleccion="LOCAL",
-                precio_back=Decimal("3.00"),
+                # 1.20 da ~15.6% de edge sobre la probabilidad real del modelo para
+                # este fixture -- generoso pero no tan extremo como para disparar
+                # la alerta de edge extremo (ver EDGE_MAXIMO_CONFIABLE).
+                precio_back=Decimal("1.20"),
                 precio_lay=None,
                 volumen_disponible=None,
             ),
@@ -118,7 +121,7 @@ class OddsScannerTests(TestCase):
                 market_id=str(self.partido.id),
                 mercado="1X2",
                 seleccion="LOCAL",
-                precio_back=Decimal("3.00"),
+                precio_back=Decimal("1.20"),
                 precio_lay=None,
                 volumen_disponible=None,
             ),
@@ -131,7 +134,7 @@ class OddsScannerTests(TestCase):
 
     def test_dos_lineas_de_over_under_solo_genera_una_recomendacion(self):
         """Las líneas de Over/Under están correlacionadas -- el escáner debe
-        quedarse solo con la de mejor EV, no recomendar las dos."""
+        quedarse solo con una, no recomendar las dos."""
         precios = [
             MarketPrice(
                 market_id=str(self.partido.id),
@@ -154,3 +157,123 @@ class OddsScannerTests(TestCase):
         scanner.escanear_partido(self.partido)
 
         self.assertLessEqual(Operacion.objects.filter(mercado__startswith="OVER_UNDER").count(), 1)
+
+    def test_entre_lineas_correlacionadas_elige_la_mas_cercana_a_la_proyeccion(self):
+        """
+        Reproduce un patrón visto en producción: si el modelo proyecta más
+        goles que el mercado, el EV crece a medida que la línea se aleja del
+        promedio (paga más cuota) -- quedarse con "la de mayor EV" terminaba
+        eligiendo siempre la línea más extrema disponible (la menos
+        confiable, más sensible a la cola de la distribución), aunque
+        líneas más centrales también tuvieran edge real. Ahora debe elegir
+        la línea numéricamente más cercana a su propia proyección de goles.
+        """
+        from ml_models.predictor import MatchPredictor
+
+        total_proyectado = sum(MatchPredictor().predecir_goles(self.partido))
+        lineas = ["1.5", "2.5", "3.5"]  # 4.5 ya no es una línea válida -- ver LINEAS_OVER_UNDER_VALIDAS
+        # Cuotas crecientes con la línea -- reproduce el patrón real donde el
+        # EV aparente crece monótonamente hacia la línea más extrema, pero
+        # todas dentro de un rango creíble (no disparan la alerta de edge
+        # extremo por sí solas).
+        cuotas_por_linea = {"1.5": "1.15", "2.5": "1.30", "3.5": "1.50"}
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado=f"OVER_UNDER_{linea}",
+                seleccion="OVER",
+                precio_back=Decimal(cuotas_por_linea[linea]),
+                precio_lay=None,
+                volumen_disponible=None,
+            )
+            for linea in lineas
+        ]
+
+        # El escáner exige una curva de calibración medida antes de recomendar
+        # un Over/Under (ver sin_calibracion en scanner.py) -- acá se simula
+        # una curva "identidad" (no corrige nada) solo para poder probar la
+        # elección de línea de forma aislada, sin mezclar con el efecto de
+        # una calibración real.
+        for linea in lineas:
+            CalibracionMercado.objects.create(
+                mercado=f"OVER_UNDER_{linea}", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=1071
+            )
+
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(len(operaciones), 1)
+        linea_esperada = min(lineas, key=lambda l: abs(float(l) - total_proyectado))
+        self.assertEqual(operaciones[0].mercado, f"OVER_UNDER_{linea_esperada}")
+
+    def test_over_under_sin_calibracion_no_genera_value_bet(self):
+        """
+        Reproduce el caso real (Limache vs Cobresal): un Over/Under con edge
+        aparente positivo no debe recomendarse si todavía no hay una curva de
+        calibración medida contra resultados reales para ese mercado (ver
+        manage.py backtest_modelo --guardar-calibracion) -- la probabilidad
+        cruda del Poisson, sin calibrar, no alcanza por sí sola.
+        """
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="OVER_UNDER_3.5",
+                seleccion="OVER",
+                precio_back=Decimal("2.25"),
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(operaciones, [])
+        analisis = AnalisisPartido.objects.get(partido=self.partido, mercado="OVER_UNDER_3.5")
+        # ANOMALIA, no NO_BET -- había edge aparente, se bloqueó por falta de
+        # validación del mercado, no por falta de valor (ver scanner.py).
+        self.assertEqual(analisis.recomendacion, AnalisisPartido.Recomendacion.ANOMALIA)
+        self.assertIn("calibración", analisis.motivo_no_bet)
+
+    def test_edge_extremo_da_anomalia_no_no_bet(self):
+        """Reproduce el otro camino a ANOMALIA: edge aparente positivo pero
+        estadísticamente inverosímil (ver EDGE_MAXIMO_CONFIABLE)."""
+        CalibracionMercado.objects.create(
+            mercado="OVER_UNDER_1.5", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=1071
+        )
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="OVER_UNDER_1.5",
+                seleccion="OVER",
+                precio_back=Decimal("10.00"),  # edge absurdo para cualquier probabilidad razonable
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(operaciones, [])
+        analisis = AnalisisPartido.objects.get(partido=self.partido, mercado="OVER_UNDER_1.5")
+        self.assertEqual(analisis.recomendacion, AnalisisPartido.Recomendacion.ANOMALIA)
+        self.assertIn("anóma", analisis.motivo_no_bet.lower())
+
+    def test_ignora_linea_4_5_aunque_venga_en_las_cuotas(self):
+        """4.5 ya no es una línea confiable (ver LINEAS_OVER_UNDER_VALIDAS) --
+        el escáner debe ignorarla incluso si el exchange la sigue ofreciendo
+        (ej. cuotas capturadas antes de excluirla)."""
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="OVER_UNDER_4.5",
+                seleccion="OVER",
+                precio_back=Decimal("6.00"),
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(operaciones, [])
+        self.assertFalse(Operacion.objects.filter(mercado="OVER_UNDER_4.5").exists())

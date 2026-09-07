@@ -4,6 +4,7 @@ import StatusBadge from "./StatusBadge";
 import {
   aceptarOperacion,
   descartarOperacion,
+  marcarOperacionAnulada,
   marcarOperacionGanada,
   marcarOperacionPerdida,
 } from "../services/api";
@@ -36,7 +37,11 @@ function AccionesOperacion({ operacion, onCambiar }) {
   if (operacion.estado === "RECOMMENDED") {
     return (
       <div className="operations-table__acciones">
-        <button disabled={enviando} onClick={() => ejecutar(aceptarOperacion)}>
+        <button
+          className="operations-table__accion--primary"
+          disabled={enviando}
+          onClick={() => ejecutar(aceptarOperacion)}
+        >
           Aceptar
         </button>
         <button disabled={enviando} onClick={() => ejecutar(descartarOperacion)}>
@@ -49,11 +54,22 @@ function AccionesOperacion({ operacion, onCambiar }) {
   if (operacion.estado === "ACCEPTED") {
     return (
       <div className="operations-table__acciones">
-        <button disabled={enviando} onClick={() => ejecutar(marcarOperacionGanada)}>
+        <button
+          className="operations-table__accion--good"
+          disabled={enviando}
+          onClick={() => ejecutar(marcarOperacionGanada)}
+        >
           Ganó
         </button>
-        <button disabled={enviando} onClick={() => ejecutar(marcarOperacionPerdida)}>
+        <button
+          className="operations-table__accion--danger"
+          disabled={enviando}
+          onClick={() => ejecutar(marcarOperacionPerdida)}
+        >
           Perdió
+        </button>
+        <button disabled={enviando} onClick={() => ejecutar(marcarOperacionAnulada)}>
+          Anulada
         </button>
       </div>
     );
@@ -76,6 +92,7 @@ export default function OperationsTable({ operaciones, onCambiarOperacion }) {
             <th>Apuesta</th>
             <th>Cuota</th>
             <th>Edge</th>
+            <th>EV</th>
             <th>Stake sugerido</th>
             <th>PNL</th>
             <th>Estado</th>
@@ -96,10 +113,16 @@ export default function OperationsTable({ operaciones, onCambiarOperacion }) {
                 </div>
               </td>
               <td>{formatOdds(op.cuota_apostada)}</td>
-              <td className={op.valor_esperado >= 0 ? "is-positive" : "is-negative"}>
+              <td className={op.edge >= 0 ? "is-positive" : "is-negative"} title="Probabilidad del modelo - probabilidad implícita del mercado (puntos porcentuales)">
+                {op.edge != null ? formatPercent(op.edge) : "-"}
+              </td>
+              <td className={op.valor_esperado >= 0 ? "is-positive" : "is-negative"} title="Valor esperado proporcional por unidad apostada: (prob. modelo × cuota) - 1">
                 {formatPercent(op.valor_esperado)}
               </td>
-              <td>{formatCurrency(op.stake)}</td>
+              <td title={`Kelly fraccional ${formatPercent(op.kelly_fraccion_usada)}`}>
+                {formatCurrency(op.stake)}
+                <span className="operations-table__mercado"> ({formatPercent(op.kelly_fraccion_usada)} Kelly)</span>
+              </td>
               <td className={Number(op.pnl) >= 0 ? "is-positive" : "is-negative"}>
                 {op.pnl !== null ? formatCurrency(op.pnl) : "-"}
               </td>

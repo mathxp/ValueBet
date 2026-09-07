@@ -1,13 +1,20 @@
 import { formatDateTime, formatPercent } from "../utils/format";
 import "./MatchCard.css";
 
-function Equipo({ equipo, align }) {
+function FilaEquipo({ equipo, xg }) {
   return (
-    <div className={`match-card__team match-card__team--${align}`}>
-      {equipo.logo_url && (
-        <img src={equipo.logo_url} alt="" className="match-card__crest" loading="lazy" />
+    <div className="match-card__row">
+      <div className="match-card__team">
+        {equipo.logo_url && (
+          <img src={equipo.logo_url} alt="" className="match-card__crest" loading="lazy" />
+        )}
+        <span className="match-card__team-name">{equipo.nombre}</span>
+      </div>
+      {xg !== null ? (
+        <span className="match-card__xg-value">{xg.toFixed(1)}</span>
+      ) : (
+        <span className="match-card__xg-empty">—</span>
       )}
-      <span className="match-card__team-name">{equipo.nombre}</span>
     </div>
   );
 }
@@ -32,21 +39,11 @@ export default function MatchCard({ partido, prediccion }) {
       <div className="match-card__meta">{formatDateTime(partido.fecha_hora)}</div>
 
       <div className="match-card__matchup">
-        <Equipo equipo={partido.equipo_local} align="left" />
-
-        <div className="match-card__xg">
-          {disponible ? (
-            <>
-              <span className="match-card__xg-value">{prediccion.xg_local.toFixed(1)}</span>
-              <span className="match-card__xg-sep">—</span>
-              <span className="match-card__xg-value">{prediccion.xg_visitante.toFixed(1)}</span>
-            </>
-          ) : (
-            <span className="match-card__xg-empty">sin datos aún</span>
-          )}
-        </div>
-
-        <Equipo equipo={partido.equipo_visitante} align="right" />
+        <FilaEquipo equipo={partido.equipo_local} xg={disponible ? prediccion.xg_local : null} />
+        <FilaEquipo
+          equipo={partido.equipo_visitante}
+          xg={disponible ? prediccion.xg_visitante : null}
+        />
       </div>
 
       {gana && (

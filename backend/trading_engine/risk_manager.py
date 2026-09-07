@@ -16,6 +16,16 @@ from decimal import Decimal
 
 from django.conf import settings
 
+# Un edge "real" y sostenible en apuestas deportivas rara vez supera el
+# 20-30% -- un edge mucho más alto que eso es estadísticamente más probable
+# que sea un error (cuota estancada/mal cargada, o el modelo sobreestimando
+# la probabilidad, típicamente en la cola de una distribución de Poisson)
+# que una oportunidad real. Se fijó en 35% mirando casos reales: los value
+# bets que resultaron ACERTADOS en este sistema rondaron 10-20% de edge,
+# mientras que los que resultaron sistemáticamente PERDEDORES (recomendaciones
+# de Over/Under en la línea 4.5, ver prompt.md sección 8) tenían 58-76%.
+EDGE_MAXIMO_CONFIABLE = 0.35
+
 
 @dataclass
 class ValueBetEvaluation:
@@ -26,6 +36,7 @@ class ValueBetEvaluation:
     kelly_fraccion_usada: float
     stake_sugerido: Decimal
     es_apuesta_de_valor: bool
+    edge_extremo: bool  # True si valor_esperado superó EDGE_MAXIMO_CONFIABLE -- ver comentario arriba
 
 
 def calcular_valor_esperado(probabilidad_modelo: float, cuota_decimal: float) -> float:
@@ -69,7 +80,8 @@ def evaluar_apuesta(
     valor_esperado = calcular_valor_esperado(probabilidad_modelo, cuota_decimal)
     kelly_completo = calcular_kelly_completo(probabilidad_modelo, cuota_decimal)
 
-    es_apuesta_de_valor = valor_esperado >= min_edge and kelly_completo > 0
+    edge_extremo = valor_esperado > EDGE_MAXIMO_CONFIABLE
+    es_apuesta_de_valor = valor_esperado >= min_edge and kelly_completo > 0 and not edge_extremo
 
     kelly_ajustado = kelly_completo * kelly_fraccion
     stake_sugerido = Decimal(str(kelly_ajustado)) * bankroll if es_apuesta_de_valor else Decimal("0")
@@ -83,4 +95,5 @@ def evaluar_apuesta(
         kelly_fraccion_usada=kelly_fraccion,
         stake_sugerido=stake_sugerido,
         es_apuesta_de_valor=es_apuesta_de_valor,
+        edge_extremo=edge_extremo,
     )

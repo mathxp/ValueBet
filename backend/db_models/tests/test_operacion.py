@@ -48,3 +48,9 @@ class OperacionTests(TestCase):
         self.operacion.marcar_perdida()
         self.assertEqual(self.operacion.estado, Operacion.Estado.PERDIDA)
         self.assertEqual(self.operacion.pnl, Decimal("-100.00"))
+
+    def test_marcar_anulada_devuelve_stake_sin_efecto_en_pnl(self):
+        self.operacion.aceptar()
+        self.operacion.marcar_anulada()
+        self.assertEqual(self.operacion.estado, Operacion.Estado.ANULADA)
+        self.assertEqual(self.operacion.pnl, Decimal("0"))

@@ -5,13 +5,21 @@ clásico (Dixon-Coles).
 
 La señal principal son los GOLES REALES de cada partido finalizado
 (Partido.resultado), no una estimación: es la base más confiable que
-tenemos, sobre todo ahora que hay un dataset histórico completo (fechas 1-21
-2026, importado con `manage.py import_historical_dataset`) además de los
-partidos que va completando api-football día a día. Antes de tener ese
-historial usábamos un "proxy" de xG estimado a partir de tiros (dentro/fuera
-del área) como aproximación; esas funciones se mantienen por si sirven para
-afinar el rating con datos más finos en el futuro, pero calcular_ratings ya
-no depende de ellas.
+tenemos, sobre todo ahora que hay casi cinco temporadas de historial
+importado (2022-2026, ver `manage.py import_excel_dataset_2022_2023`,
+`import_excel_dataset` e `import_historical_dataset`) además de los
+partidos que va completando api-football día a día.
+
+Aislamiento de varianza: cuando además hay un "proxy" de xG por tiros
+(`proxy_xg`, calculado por `data_ingestion.tasks.fetch_match_statistics` y
+guardado en `Partido.metricas_avanzadas["proxy_xg"]`), calcular_ratings()
+mezcla ese proxy con el gol real (ver `_valor_ataque_defensa`) para no
+dejar que un partido dominado pero empatado/perdido por varianza pese igual
+que un partido realmente parejo. Esto solo aplica a los partidos que
+api-football ingiere en vivo -- los datasets históricos importados desde
+Excel no traen estadísticas de tiros, así que para ellos (la gran mayoría
+del historial hoy) se sigue usando el gol real sin mezcla, que es la
+alternativa más confiable cuando no hay proxy disponible.
 """
 
 from __future__ import annotations
@@ -29,6 +37,13 @@ TASA_CONVERSION_FUERA_AREA = 0.03
 
 MIN_PARTIDOS_PARA_RATING = 3
 MAX_PARTIDOS_POR_EQUIPO = 15
+
+# Peso del proxy de xG (por tiros) frente al gol real cuando ambos están
+# disponibles para un partido -- 0.5 pondera parejo: ni ignora la varianza
+# del resultado real (por eso no es 1.0) ni confía ciegamente en un proxy
+# calibrado con tasas de conversión genéricas, no medidas en esta liga (por
+# eso no es más alto). Ver el docstring del módulo.
+PESO_XG_PROXY = 0.5
 
 # Shrinkage (regularización estadística, tipo James-Stein/Bayes empírico):
 # sin esto, un equipo con pocos partidos y forma marcada en ambos extremos
@@ -88,16 +103,54 @@ class RatingEquipo:
     ultimo_partido: datetime | None = None  # fecha del partido contado más reciente (Data Quality Score)
 
 
-def _historial_finalizados(liga: str = "") -> list[Partido]:
+def _valor_ataque_defensa(partido: Partido, es_local: bool) -> tuple[float, float]:
+    """
+    (goles a favor, goles en contra) del equipo local o visitante en este
+    partido, mezclados con el proxy de xG por tiros cuando está disponible
+    para ambos equipos (ver docstring del módulo) -- si no está disponible,
+    retorna el gol real sin modificar.
+    """
+    goles_local = partido.resultado.get("local")
+    goles_visitante = partido.resultado.get("visitante")
+    goles_favor = goles_local if es_local else goles_visitante
+    goles_contra = goles_visitante if es_local else goles_local
+
+    proxy_xg = partido.metricas_avanzadas.get("proxy_xg")
+    if not proxy_xg:
+        return float(goles_favor), float(goles_contra)
+
+    equipo_id = partido.equipo_local.api_football_id if es_local else partido.equipo_visitante.api_football_id
+    rival_id = partido.equipo_visitante.api_football_id if es_local else partido.equipo_local.api_football_id
+    xg_favor = proxy_xg.get(str(equipo_id))
+    xg_contra = proxy_xg.get(str(rival_id))
+    if xg_favor is None or xg_contra is None:
+        return float(goles_favor), float(goles_contra)
+
+    valor_favor = PESO_XG_PROXY * xg_favor + (1 - PESO_XG_PROXY) * goles_favor
+    valor_contra = PESO_XG_PROXY * xg_contra + (1 - PESO_XG_PROXY) * goles_contra
+    return valor_favor, valor_contra
+
+
+def _historial_finalizados(liga: str = "", hasta_fecha: datetime | None = None) -> list[Partido]:
+    """
+    `hasta_fecha`: si se da, solo considera partidos anteriores a esa fecha
+    (estrictamente) -- lo usa el backtesting (ml_models/management/commands/
+    backtest_modelo.py) para calcular el rating "como se veía" antes de un
+    partido histórico específico, sin usar información que en ese momento
+    todavía no existía (data leakage). En producción (hasta_fecha=None) se
+    usa todo el historial disponible, que es lo que ya hacía esta función.
+    """
     qs = Partido.objects.filter(estado=Partido.Estado.FINALIZADO).order_by("-fecha_hora")
     if liga:
         qs = qs.filter(liga=liga)
+    if hasta_fecha is not None:
+        qs = qs.filter(fecha_hora__lt=hasta_fecha)
     return list(qs.select_related("equipo_local", "equipo_visitante")[:1000])
 
 
-def calcular_ratings(liga: str = "") -> dict[int, RatingEquipo]:
+def calcular_ratings(liga: str = "", hasta_fecha: datetime | None = None) -> dict[int, RatingEquipo]:
     """Rating de ataque/defensa por equipo (api_football_id) a partir de goles reales."""
-    partidos = _historial_finalizados(liga)
+    partidos = _historial_finalizados(liga, hasta_fecha)
 
     por_equipo: dict[int, list[tuple[float, float]]] = {}
     ultimo_partido_por_equipo: dict[int, datetime] = {}
@@ -113,10 +166,10 @@ def calcular_ratings(liga: str = "") -> dict[int, RatingEquipo]:
         por_equipo.setdefault(local_id, [])
         por_equipo.setdefault(visitante_id, [])
         if len(por_equipo[local_id]) < MAX_PARTIDOS_POR_EQUIPO:
-            por_equipo[local_id].append((goles_local, goles_visitante))
+            por_equipo[local_id].append(_valor_ataque_defensa(partido, es_local=True))
             ultimo_partido_por_equipo.setdefault(local_id, partido.fecha_hora)
         if len(por_equipo[visitante_id]) < MAX_PARTIDOS_POR_EQUIPO:
-            por_equipo[visitante_id].append((goles_visitante, goles_local))
+            por_equipo[visitante_id].append(_valor_ataque_defensa(partido, es_local=False))
             ultimo_partido_por_equipo.setdefault(visitante_id, partido.fecha_hora)
 
     if not por_equipo:
@@ -145,7 +198,7 @@ def calcular_ratings(liga: str = "") -> dict[int, RatingEquipo]:
     return ratings
 
 
-def _factor_localia(liga: str = "") -> tuple[float, float]:
+def factor_localia(liga: str = "", hasta_fecha: datetime | None = None) -> tuple[float, float]:
     """
     Ventaja de local medida con goles reales: en esta liga, los locales
     anotan ~35% más que los visitantes (1.64 vs 1.22 goles/partido en el
@@ -157,7 +210,7 @@ def _factor_localia(liga: str = "") -> tuple[float, float]:
     Retorna (factor_local, factor_visita) relativos al promedio general de
     goles por equipo por partido -- factor_local > 1, factor_visita < 1.
     """
-    partidos = _historial_finalizados(liga)
+    partidos = _historial_finalizados(liga, hasta_fecha)
     goles_local = [p.resultado["local"] for p in partidos if "local" in p.resultado]
     goles_visita = [p.resultado["visitante"] for p in partidos if "visitante" in p.resultado]
 
@@ -173,14 +226,20 @@ def _factor_localia(liga: str = "") -> tuple[float, float]:
     return promedio_local / promedio_general, promedio_visita / promedio_general
 
 
-def proyectar_xg(equipo_local_id: int, equipo_visitante_id: int, liga: str = "") -> tuple[float, float] | None:
+def proyectar_xg(
+    equipo_local_id: int, equipo_visitante_id: int, liga: str = "", hasta_fecha: datetime | None = None
+) -> tuple[float, float] | None:
     """
     Estima el xG esperado del próximo partido combinando el ataque de cada
     equipo, la defensa del rival, y la ventaja de jugar de local. Retorna
     None si a alguno de los dos le falta historial suficiente -- en ese caso
     el predictor se abstiene en vez de inventar un número.
+
+    `hasta_fecha`: ver `_historial_finalizados` -- para backtesting, calcula
+    el rating "como se veía" antes de esa fecha en vez de con todo el
+    historial disponible hoy.
     """
-    ratings = calcular_ratings(liga)
+    ratings = calcular_ratings(liga, hasta_fecha)
     local = ratings.get(equipo_local_id)
     visitante = ratings.get(equipo_visitante_id)
 
@@ -193,7 +252,7 @@ def proyectar_xg(equipo_local_id: int, equipo_visitante_id: int, liga: str = "")
     if promedio_liga <= 0:
         return None
 
-    factor_local, factor_visita = _factor_localia(liga)
+    factor_local, factor_visita = factor_localia(liga, hasta_fecha)
 
     xg_local = local.ataque * factor_local * (visitante.defensa / promedio_liga)
     xg_visitante = visitante.ataque * factor_visita * (local.defensa / promedio_liga)

@@ -193,11 +193,12 @@ class PaperExchangeClient(ExchangeClient):
     """
 
     def __init__(self, balance_inicial: Decimal | None = None):
-        self._balance = (
-            balance_inicial
-            if balance_inicial is not None
-            else Decimal(str(settings.PAPER_BANKROLL))
-        )
+        if balance_inicial is not None:
+            self._balance = balance_inicial
+        else:
+            from db_models.models import ConfiguracionRiesgo
+
+            self._balance = ConfiguracionRiesgo.actual().paper_bankroll
 
     def get_market_odds(self, market_id: str) -> list[MarketPrice]:
         from django.db.models import Max

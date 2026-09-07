@@ -20,7 +20,8 @@ from datetime import datetime
 
 from django.utils import timezone
 
-from ml_models.pipelines.team_ratings import K_SHRINKAGE, MAX_PARTIDOS_POR_EQUIPO
+from ml_models.pipelines.team_ratings import K_SHRINKAGE, MAX_PARTIDOS_POR_EQUIPO, MIN_PARTIDOS_PARA_RATING
+from trading_engine.risk_manager import EDGE_MAXIMO_CONFIABLE
 
 # Umbrales por debajo de los cuales el sistema prefiere NO BET aunque haya edge.
 MIN_DATA_QUALITY_SCORE = 40
@@ -72,13 +73,51 @@ def calcular_confidence_score(data_quality_score: int, partidos_local: int, part
     return round(data_quality_score * (0.5 + 0.5 * peso_promedio))
 
 
-def calcular_value_score(ev: float | None, confidence_score: int) -> int:
+def calcular_value_score(
+    ev: float | None,
+    data_quality_score: int,
+    confidence_score: int,
+    calibrado: bool,
+    partidos_local: int,
+    partidos_visitante: int,
+    es_anomalia: bool = False,
+) -> int:
     """
-    0-100. Un EV alto con confianza baja da un value score moderado -- no
-    alto -- porque la confianza pondera directamente. Un EV negativo o nulo
-    siempre da 0 (nunca hay "valor" sin EV positivo, sin importar la confianza).
+    0-100, ponderado por seis componentes -- ninguno inventado, todos
+    derivados de números que el sistema ya calcula en otro lado:
+
+    - EV (30 pts): tamaño de la oportunidad. Se usa el EV proporcional
+      (no el edge en puntos porcentuales) porque es lo mismo que ya
+      compara `EDGE_MAXIMO_CONFIABLE` -- saturado en ese mismo techo, así
+      que un EV "al límite de lo creíble" ya se lleva los 30 puntos.
+    - Calibración (25 pts): 25 si el mercado tiene curva de calibración
+      medida contra resultados reales (`CalibracionMercado`), 0 si no --
+      binario a propósito, no hay forma de medir "cuánta" calibración sin
+      inventar una escala.
+    - Calidad de datos (15) y Confianza (15): proporcional directo a
+      `data_quality_score`/`confidence_score` (0-100 cada uno).
+    - Estabilidad (10 pts): qué tan lejos está el equipo con MENOS
+      historial de los dos del doble del mínimo requerido
+      (`MIN_PARTIDOS_PARA_RATING`) -- un rating con apenas el mínimo
+      todavía puede moverse mucho con el próximo partido; con el doble,
+      ya es bastante más estable.
+    - Anomalías (5 pts): 0 si `es_anomalia` (edge extremo o mercado sin
+      validar, ver trading_engine/scanner.py), 5 si no.
+
+    Un EV negativo, nulo, o marcado como anomalía siempre da 0 -- nunca hay
+    "valor" ahí, sin importar qué tan bien se vean los demás componentes.
     """
-    if ev is None or ev <= 0:
+    if es_anomalia or ev is None or ev <= 0:
         return 0
-    puntos_ev = min(100, round(ev * 200))  # 50% de EV ya satura el puntaje
-    return round(puntos_ev * (confidence_score / 100))
+
+    puntos_ev = min(30, round(ev * 30 / EDGE_MAXIMO_CONFIABLE))
+    puntos_calibracion = 25 if calibrado else 0
+    puntos_calidad = round(data_quality_score * 15 / 100)
+    puntos_confianza = round(confidence_score * 15 / 100)
+
+    partidos_minimos = min(partidos_local, partidos_visitante)
+    puntos_estabilidad = round(10 * min(partidos_minimos / (2 * MIN_PARTIDOS_PARA_RATING), 1.0))
+
+    puntos_anomalias = 5
+
+    return puntos_ev + puntos_calibracion + puntos_calidad + puntos_confianza + puntos_estabilidad + puntos_anomalias

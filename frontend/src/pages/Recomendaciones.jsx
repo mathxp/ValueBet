@@ -6,11 +6,22 @@ import InfoBox from "../components/InfoBox";
 import OperationsTable from "../components/OperationsTable";
 import PnlLineChart from "../components/PnlLineChart";
 import RendimientoModelo from "../components/RendimientoModelo";
+import RendimientoPorMercado from "../components/RendimientoPorMercado";
+import RendimientoValueBets from "../components/RendimientoValueBets";
 import StatTile from "../components/StatTile";
 import { getAnalisis, getOperaciones, getResumenOperaciones } from "../services/api";
-import { formatCurrency, formatPercent } from "../utils/format";
+import { ESTADO_OPERACION_CONFIG, formatCurrency, formatMercado, formatPercent } from "../utils/format";
 
 const PAGE_SIZE = 25;
+
+// Líneas históricas: 4.5 ya no se recomienda (ver LINEAS_OVER_UNDER_VALIDAS
+// en el backend), pero sigue en el historial de análisis viejos.
+const MERCADOS_FILTRO = ["1X2", "OVER_UNDER_1.5", "OVER_UNDER_2.5", "OVER_UNDER_3.5", "OVER_UNDER_4.5"];
+const TEMPORADAS_FILTRO = ["2022", "2023", "2024", "2025", "2026"];
+
+function labelMercado(mercado) {
+  return mercado === "1X2" ? "Resultado (1X2)" : formatMercado(mercado);
+}
 
 export default function Recomendaciones() {
   const [resumen, setResumen] = useState(null);
@@ -20,10 +31,26 @@ export default function Recomendaciones() {
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filtroMercado, setFiltroMercado] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroTemporada, setFiltroTemporada] = useState("");
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getResumenOperaciones(), getOperaciones({ page }), getAnalisis()])
+    const filtros = {
+      ...(filtroMercado && { mercado: filtroMercado }),
+      ...(filtroEstado && { estado: filtroEstado }),
+      ...(filtroTemporada && { partido__temporada: filtroTemporada }),
+    };
+    Promise.all([
+      getResumenOperaciones(),
+      getOperaciones({ page, ...filtros }),
+      // "Historial completo" abajo es para decidir qué hacer HOY -- los
+      // partidos que ya se jugaron no aportan nada ahí (el rendimiento
+      // histórico del modelo, incluidos los ya jugados, se ve aparte en
+      // RendimientoModelo).
+      getAnalisis({ partido__fecha_hora__gte: new Date().toISOString() }),
+    ])
       .then(([resumenData, operacionesData, analisisData]) => {
         setResumen(resumenData);
         setOperaciones(operacionesData.results ?? operacionesData);
@@ -32,7 +59,12 @@ export default function Recomendaciones() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, filtroMercado, filtroEstado, filtroTemporada]);
+
+  const cambiarFiltro = (setter) => (e) => {
+    setPage(1);
+    setter(e.target.value);
+  };
 
   const pnlPoints = useMemo(() => {
     let acumulado = 0;
@@ -64,8 +96,14 @@ export default function Recomendaciones() {
 
       <InfoBox title="Qué significa cada columna y cómo se usa esto">
         <p>
-          <strong>Edge</strong>: cuánta ventaja calcula el modelo que tiene esa apuesta sobre la
-          cuota ofrecida (ej. 15% de edge = el modelo cree que vale más de lo que paga la casa).{" "}
+          <strong>Edge</strong> y <strong>EV</strong> no son lo mismo, aunque midan algo parecido:{" "}
+          <br />
+          Edge = Probabilidad del modelo − Probabilidad implícita de la cuota (1 / cuota), en
+          puntos porcentuales. Ej: modelo 45%, cuota 3.00 (33% implícito) → Edge = +12 pp.{" "}
+          <br />
+          EV = (Probabilidad del modelo × cuota) − 1, la ganancia esperada proporcional por unidad
+          apostada. Con los mismos números: EV = (0,45 × 3,00) − 1 = +35%.{" "}
+          <br />
           <strong>Stake sugerido</strong>: cuánto apostar según Criterio de Kelly fraccional, para
           no arriesgar de más incluso si el modelo se equivoca.
         </p>
@@ -82,6 +120,9 @@ export default function Recomendaciones() {
 
       {!loading && !error && (
         <>
+          <h2 className="recomendaciones-page__seccion">
+            Rendimiento del usuario (solo lo que aceptaste, plata real)
+          </h2>
           <div className="dashboard__stats">
             <StatTile
               label="PNL total"
@@ -92,6 +133,12 @@ export default function Recomendaciones() {
             <StatTile
               label="Win rate"
               value={resumen?.win_rate != null ? formatPercent(resumen.win_rate) : "-"}
+              dim={resumen ? !resumen.muestra_suficiente : false}
+              hint={
+                resumen && !resumen.muestra_suficiente
+                  ? `⚠️ Muestra: ${resumen.finalizadas}/20 -- rendimiento no concluyente todavía`
+                  : undefined
+              }
             />
           </div>
 
@@ -99,7 +146,11 @@ export default function Recomendaciones() {
             <PnlLineChart points={pnlPoints} />
           </Card>
 
+          <RendimientoValueBets />
+
           <RendimientoModelo />
+
+          <RendimientoPorMercado />
 
           <InfoBox title="Data Quality, Confianza y Value Score">
             <p>
@@ -113,7 +164,7 @@ export default function Recomendaciones() {
             </p>
           </InfoBox>
 
-          <Card title="Historial completo de análisis (incluye los NO BET)">
+          <Card title="Análisis de partidos pendientes (incluye los NO BET)">
             <AnalysisTable analisis={analisis} />
           </Card>
 
@@ -133,6 +184,46 @@ export default function Recomendaciones() {
               </div>
             }
           >
+            <div className="historial-filtros">
+              <select value={filtroMercado} onChange={cambiarFiltro(setFiltroMercado)}>
+                <option value="">Todos los mercados</option>
+                {MERCADOS_FILTRO.map((m) => (
+                  <option key={m} value={m}>
+                    {labelMercado(m)}
+                  </option>
+                ))}
+              </select>
+              <select value={filtroEstado} onChange={cambiarFiltro(setFiltroEstado)}>
+                <option value="">Todos los estados</option>
+                {Object.entries(ESTADO_OPERACION_CONFIG).map(([valor, cfg]) => (
+                  <option key={valor} value={valor}>
+                    {cfg.label}
+                  </option>
+                ))}
+              </select>
+              <select value={filtroTemporada} onChange={cambiarFiltro(setFiltroTemporada)}>
+                <option value="">Todas las temporadas</option>
+                {TEMPORADAS_FILTRO.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              {(filtroMercado || filtroEstado || filtroTemporada) && (
+                <button
+                  type="button"
+                  className="historial-filtros__limpiar"
+                  onClick={() => {
+                    setPage(1);
+                    setFiltroMercado("");
+                    setFiltroEstado("");
+                    setFiltroTemporada("");
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
             <OperationsTable operaciones={operaciones} onCambiarOperacion={handleCambiarOperacion} />
           </Card>
         </>

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 
 
@@ -124,7 +126,13 @@ class Operacion(models.Model):
     cuota_apostada = models.DecimalField(
         max_digits=7, decimal_places=3, help_text="Cuota de mercado vista al momento del escaneo"
     )
-    valor_esperado = models.FloatField(help_text="Edge: (prob_modelo * cuota) - 1")
+    valor_esperado = models.FloatField(
+        help_text=(
+            "EV (valor esperado) por unidad apostada: (prob_modelo * cuota) - 1. "
+            "No confundir con el edge (diferencia en puntos de probabilidad, ver "
+            "OperacionSerializer.edge) -- son dos números distintos con distinta unidad."
+        )
+    )
 
     kelly_fraccion_usada = models.FloatField(
         help_text="Fracción de Kelly aplicada, ej. 0.25 para quarter-Kelly"
@@ -178,6 +186,17 @@ class Operacion(models.Model):
         self.estado = self.Estado.PERDIDA
         self.save(update_fields=["pnl", "estado", "actualizado_en"])
 
+    def marcar_anulada(self):
+        """
+        NULA/PUSH: se devuelve el stake exacto, sin ganancia ni pérdida.
+        Aplica cuando el mercado queda sin efecto (ej. partido suspendido
+        después de aceptar la recomendación, o un mercado tipo "hándicap
+        asiático"/"empate no acción" que la casa/exchange anula).
+        """
+        self.pnl = Decimal("0")
+        self.estado = self.Estado.ANULADA
+        self.save(update_fields=["pnl", "estado", "actualizado_en"])
+
 
 class AnalisisPartido(models.Model):
     """
@@ -196,6 +215,14 @@ class AnalisisPartido(models.Model):
     class Recomendacion(models.TextChoices):
         VALUE_BET = "VALUE_BET", "Value bet"
         NO_BET = "NO_BET", "No bet"
+        # Distinto de un NO_BET común (edge insuficiente): acá SÍ había edge
+        # aparente, pero se bloqueó por una razón estructural -- edge
+        # estadísticamente inverosímil, o el mercado todavía no tiene curva
+        # de calibración medida contra resultados reales (ver
+        # trading_engine/scanner.py). Separarlo de NO_BET evita que se lea
+        # como "no hay nada interesante acá" cuando en realidad es "hay algo
+        # que mirar, pero no se puede confiar en el número todavía".
+        ANOMALIA = "ANOMALIA", "Anomalía detectada"
 
     partido = models.ForeignKey(Partido, on_delete=models.CASCADE, related_name="analisis")
     mercado = models.CharField(
@@ -325,3 +352,79 @@ class AnalisisPartido(models.Model):
 
         self.resuelto_en = timezone.now()
         self.save()
+
+
+class ConfiguracionRiesgo(models.Model):
+    """
+    Parámetros de gestión de riesgo, editables desde el dashboard (pestaña
+    Configuración) sin tener que tocar backend/.env ni reiniciar ningún
+    proceso -- OddsScanner y PaperExchangeClient leen esta fila en cada
+    escaneo. Singleton: siempre existe una única fila (pk=1);
+    ConfiguracionRiesgo.actual() la crea con los valores de settings.py
+    (o sea, los de backend/.env) la primera vez que se pide.
+    """
+
+    paper_bankroll = models.DecimalField(max_digits=12, decimal_places=2)
+    kelly_fraction = models.FloatField()
+    max_stake_per_bet = models.DecimalField(max_digits=10, decimal_places=2)
+    min_edge_threshold = models.FloatField()
+
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de riesgo"
+        verbose_name_plural = "Configuración de riesgo"
+
+    def __str__(self):
+        return "Configuración de riesgo"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def actual(cls) -> "ConfiguracionRiesgo":
+        from django.conf import settings
+
+        instancia, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                "paper_bankroll": settings.PAPER_BANKROLL,
+                "kelly_fraction": settings.KELLY_FRACTION,
+                "max_stake_per_bet": settings.MAX_STAKE_PER_BET,
+                "min_edge_threshold": settings.MIN_EDGE_THRESHOLD,
+            },
+        )
+        return instancia
+
+
+class CalibracionMercado(models.Model):
+    """
+    Curva de calibración por mercado: puntos (probabilidad predicha por el
+    modelo, frecuencia real medida) obtenidos con backtesting walk-forward
+    sobre el historial real, sin data leakage -- ver
+    ml_models/management/commands/backtest_modelo.py (--guardar-calibracion)
+    y ml_models/pipelines/calibracion.py.
+
+    ml_models.predictor.MatchPredictor la usa para corregir la probabilidad
+    cruda del modelo de Poisson antes de que el escáner calcule edge/EV --
+    ej. si el historial real muestra que "40-60% predicho" en realidad
+    ocurrió solo 32% de las veces, una nueva predicción de 50% para ese
+    mercado se ajusta hacia abajo en esa misma proporción medida, en vez de
+    usarse tal cual. Si no hay fila para un mercado, no se ajusta nada --
+    nunca se inventa una corrección sin evidencia real detrás.
+    """
+
+    mercado = models.CharField(max_length=50, unique=True)
+    puntos = models.JSONField(
+        help_text="Lista de [probabilidad_predicha, frecuencia_real], un punto por bucket con muestra suficiente."
+    )
+    n_total = models.PositiveIntegerField(help_text="Cantidad total de casos históricos usados para esta curva.")
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Calibración de mercado"
+        verbose_name_plural = "Calibraciones de mercado"
+
+    def __str__(self):
+        return f"Calibración {self.mercado} (n={self.n_total})"

@@ -1,5 +1,7 @@
 # ValueBet — Bot de Trading Deportivo (ML + Kelly)
 
+![ValueBet](frontend/src/assets/logo-full.png)
+
 Bot automatizado que combina modelos predictivos (Machine Learning) y gestión de
 riesgo matemática (Criterio de Kelly fraccional) para identificar y ejecutar
 "value bets" en exchanges de apuestas deportivas. Ver [prompt.md](prompt.md) para
@@ -61,9 +63,35 @@ Para las tareas asíncronas (ingesta, escaneo de cuotas) necesitas Redis
 corriendo y, en otra terminal:
 
 ```bash
-celery -A core worker --loglevel=info
+celery -A core worker --loglevel=info      # en Windows agregar --pool=solo (ver nota abajo)
 celery -A core beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
 ```
+
+Con esto corriendo (Redis + worker + beat), el pipeline queda automatizado según
+el `beat_schedule` de `core/celery.py` -- ya no hace falta correr
+`run_pipeline_once` a mano.
+
+#### Redis en Windows (sin Docker)
+
+Windows no tiene un build oficial de Redis. La forma más simple es correrlo
+dentro de WSL2:
+
+```bash
+wsl --install -d Ubuntu     # una sola vez, si no tenés ya una distro Linux
+wsl -d Ubuntu
+sudo apt-get update && sudo apt-get install -y redis-server
+sudo service redis-server start
+```
+
+WSL2 expone `127.0.0.1` de la distro al Windows host automáticamente, así que
+`REDIS_URL=redis://localhost:6379/0` en `backend/.env` funciona sin cambios.
+El servicio queda habilitado (`systemctl enable`) para arrancar solo la
+próxima vez que reinicies esa distro, pero **WSL2 no arranca solo al prender
+Windows** -- necesitás abrir esa distro (`wsl -d Ubuntu`, aunque sea sin
+hacer nada más) antes de levantar el worker/beat.
+
+En Windows, el pool por default de Celery (`prefork`) no funciona porque
+depende de `fork()`. Usá `--pool=solo` (o `--pool=threads`) para el worker.
 
 ### Frontend
 
@@ -116,9 +144,7 @@ backend). El frontend queda en `http://localhost:5173/` y el backend en
 | `API_FOOTBALL_KEY` | API key de api-football.com (plan gratuito) |
 | `WATCHED_LEAGUES` | IDs de ligas a monitorear, ej. `265` (Primera División de Chile). El plan gratuito de api-football no permite pedir fixtures por `season`, solo por fecha (ver nota abajo) |
 | `BETFAIR_APP_KEY`, `BETFAIR_USERNAME`, `BETFAIR_PASSWORD`, `BETFAIR_CERT_PATH` | Credenciales de Betfair Exchange. Mientras estén vacías, el bot opera en modo *paper trading* simulado |
-| `KELLY_FRACTION` | Fracción del Kelly completo a apostar (default `0.25`, quarter-Kelly) |
-| `MAX_STAKE_PER_BET` | Tope de stake por apuesta, independiente de lo que sugiera Kelly |
-| `MIN_EDGE_THRESHOLD` | Edge mínimo requerido para considerar una apuesta "de valor" (default `0.03` = 3%) |
+| `PAPER_BANKROLL`, `KELLY_FRACTION`, `MAX_STAKE_PER_BET`, `MIN_EDGE_THRESHOLD` | Valores **iniciales** de gestión de riesgo -- solo se usan para sembrar la fila de configuración la primera vez (`ConfiguracionRiesgo.actual()`). Una vez creada esa fila, se editan desde el dashboard (pestaña **Configuración**) y estas variables de `.env` dejan de tener efecto |
 
 ## xG: no existe un proveedor gratis para la liga chilena
 

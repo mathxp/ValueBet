@@ -30,9 +30,23 @@ export const marcarOperacionGanada = (id) =>
 export const marcarOperacionPerdida = (id) =>
   api.post(`operaciones/${id}/marcar-perdida/`).then((r) => r.data);
 
+export const marcarOperacionAnulada = (id) =>
+  api.post(`operaciones/${id}/marcar-anulada/`).then((r) => r.data);
+
 export const getAnalisis = (params) => api.get("analisis/", { params }).then((r) => r.data);
 
 export const getRendimientoModelo = () =>
   api.get("analisis/rendimiento/").then((r) => r.data);
+
+export const getRendimientoValueBets = () =>
+  api.get("analisis/rendimiento-value-bets/").then((r) => r.data);
+
+export const getRendimientoPorMercado = () =>
+  api.get("analisis/rendimiento-por-mercado/").then((r) => r.data);
+
+export const getConfiguracion = () => api.get("config/").then((r) => r.data);
+
+export const actualizarConfiguracionRiesgo = (cambios) =>
+  api.patch("config/", cambios).then((r) => r.data);
 
 export default api;

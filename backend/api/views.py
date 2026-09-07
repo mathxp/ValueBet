@@ -6,9 +6,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from db_models.models import AnalisisPartido, Equipo, HistorialCuotas, Operacion, Partido
+from db_models.models import AnalisisPartido, ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
 from db_models.serializers import (
     AnalisisPartidoSerializer,
+    ConfiguracionRiesgoSerializer,
     EquipoSerializer,
     HistorialCuotasSerializer,
     OperacionSerializer,
@@ -106,6 +107,11 @@ class OperacionViewSet(viewsets.ModelViewSet):
 
     queryset = Operacion.objects.select_related("partido").all()
     serializer_class = OperacionSerializer
+    filterset_fields = {
+        "mercado": ["exact"],
+        "estado": ["exact"],
+        "partido__temporada": ["exact"],
+    }
 
     def _requiere_estado(self, operacion, estado_esperado):
         if operacion.estado != estado_esperado:
@@ -151,6 +157,16 @@ class OperacionViewSet(viewsets.ModelViewSet):
         operacion.marcar_perdida()
         return Response(self.get_serializer(operacion).data)
 
+    @action(detail=True, methods=["post"], url_path="marcar-anulada")
+    def marcar_anulada(self, request, pk=None):
+        """NULA/PUSH: se devuelve el stake, sin efecto en el PNL."""
+        operacion = self.get_object()
+        error = self._requiere_estado(operacion, Operacion.Estado.ACEPTADA)
+        if error:
+            return error
+        operacion.marcar_anulada()
+        return Response(self.get_serializer(operacion).data)
+
     @action(detail=False, methods=["get"])
     def resumen(self, request):
         """PNL agregado y estadísticas rápidas para el dashboard."""
@@ -166,6 +182,11 @@ class OperacionViewSet(viewsets.ModelViewSet):
             estado__in=[Operacion.Estado.GANADA, Operacion.Estado.PERDIDA]
         ).count()
         agregados["win_rate"] = (ganadas / finalizadas) if finalizadas else None
+        agregados["finalizadas"] = finalizadas
+        # Con pocas apuestas resueltas, el win rate es ruido, no una señal --
+        # no tiene sentido estadístico "confiar" en un 50% que sale de 2
+        # casos. Mismo mínimo que usa AnalisisPartidoViewSet.rendimiento().
+        agregados["muestra_suficiente"] = finalizadas >= 20
         return Response(agregados)
 
 
@@ -180,7 +201,12 @@ class AnalisisPartidoViewSet(viewsets.ReadOnlyModelViewSet):
         "partido__equipo_local", "partido__equipo_visitante"
     ).all()
     serializer_class = AnalisisPartidoSerializer
-    filterset_fields = ["recomendacion", "mercado"]
+    filterset_fields = {
+        "recomendacion": ["exact"],
+        "mercado": ["exact"],
+        "partido__fecha_hora": ["gte", "lte"],
+        "partido__temporada": ["exact"],
+    }
 
     @action(detail=False, methods=["get"])
     def rendimiento(self, request):
@@ -217,8 +243,6 @@ class AnalisisPartidoViewSet(viewsets.ReadOnlyModelViewSet):
         aciertos_baseline = 0
         brier_modelo = 0.0
         brier_baseline = 0.0
-        pnl_total = Decimal("0")
-        stake_total = Decimal("0")
 
         for fila in resueltos:
             ocurrio = 1 if fila.prediccion_acertada else 0
@@ -228,10 +252,6 @@ class AnalisisPartidoViewSet(viewsets.ReadOnlyModelViewSet):
             baseline_predice_ocurre = fila.probabilidad_implicita >= 0.5
             aciertos_baseline += int(baseline_predice_ocurre == bool(ocurrio))
             brier_baseline += (fila.probabilidad_implicita - ocurrio) ** 2
-
-            if fila.recomendacion == AnalisisPartido.Recomendacion.VALUE_BET and fila.pnl_teorico is not None:
-                pnl_total += fila.pnl_teorico
-                stake_total += fila.stake_sugerido or Decimal("0")
 
         return Response(
             {
@@ -245,38 +265,184 @@ class AnalisisPartidoViewSet(viewsets.ReadOnlyModelViewSet):
                     "accuracy": aciertos_baseline / total,
                     "brier_score": round(brier_baseline / total, 4),
                 },
-                "roi_value_bets": float(pnl_total / stake_total) if stake_total else None,
-                "stake_total_teorico": stake_total,
-                "pnl_total_teorico": pnl_total,
             }
         )
+
+    @action(detail=False, methods=["get"], url_path="rendimiento-value-bets")
+    def rendimiento_value_bets(self, request):
+        """
+        Rendimiento de TODAS las value bets que generó el sistema
+        (recomendacion=VALUE_BET) -- las haya aceptado el usuario o no. Es
+        DISTINTO de:
+        - `rendimiento()` (arriba): todas las predicciones, haya o no
+          recomendación -- mide si el modelo en general predice bien.
+        - `OperacionViewSet.resumen()`: solo las que el usuario aceptó de
+          verdad -- plata real, no teórica.
+        Mezclar estos tres números fue justo la confusión que reportó el
+        usuario ("no separar las estadísticas").
+        """
+        from django.db.models import Avg, Sum
+
+        minimo_para_comparar = 20
+
+        value_bets = self.get_queryset().filter(recomendacion=AnalisisPartido.Recomendacion.VALUE_BET)
+        total_value_bets = value_bets.count()
+
+        promedios = value_bets.aggregate(ev_promedio=Avg("ev"), edge_promedio=Avg("edge"))
+
+        resueltas_qs = value_bets.filter(recomendacion_acertada__isnull=False)
+        resueltas = resueltas_qs.count()
+
+        base = {
+            "total_value_bets": total_value_bets,
+            "resueltas": resueltas,
+            "minimo_requerido": minimo_para_comparar,
+            "ev_promedio": promedios["ev_promedio"],
+            "edge_promedio": promedios["edge_promedio"],
+        }
+
+        if resueltas < minimo_para_comparar:
+            return Response(
+                {
+                    **base,
+                    "datos_suficientes": False,
+                    "motivo": (
+                        "Todavía no hay suficientes value bets resueltas para un win rate/ROI "
+                        "estadísticamente significativo."
+                    ),
+                }
+            )
+
+        aciertos = resueltas_qs.filter(recomendacion_acertada=True).count()
+        agregados = resueltas_qs.aggregate(pnl_total=Sum("pnl_teorico"), stake_total=Sum("stake_sugerido"))
+        stake_total = agregados["stake_total"] or Decimal("0")
+
+        return Response(
+            {
+                **base,
+                "datos_suficientes": True,
+                "win_rate": aciertos / resueltas,
+                "roi_teorico": float(agregados["pnl_total"] / stake_total) if stake_total else None,
+                "pnl_teorico_total": agregados["pnl_total"],
+                "stake_teorico_total": stake_total,
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="rendimiento-por-mercado")
+    def rendimiento_por_mercado(self, request):
+        """
+        Igual que `rendimiento()`, pero desglosado por mercado en vez de un
+        solo número mezclado -- el modelo puede estar bien calibrado en 1X2
+        y mal en una línea de Over/Under (de hecho, así fue: ver prompt.md
+        sección 8/10, es exactamente por qué se sacó la línea 4.5). Cada
+        mercado se audita con su propio mínimo de muestra -- "GENERAL" se
+        excluye porque no es un mercado real, es el registro de "no se pudo
+        evaluar nada" (ver scanner.py:_registrar_no_bet_general).
+        """
+        from django.db.models import Sum
+
+        minimo_para_comparar = 20
+
+        resueltos_base = (
+            self.get_queryset()
+            .filter(
+                prediccion_acertada__isnull=False,
+                probabilidad_seleccion__isnull=False,
+                probabilidad_implicita__isnull=False,
+            )
+            .exclude(mercado="GENERAL")
+        )
+        # .order_by() (sin argumentos) limpia el ordering default del modelo
+        # (-fecha_analisis) -- si no, Django lo suma al SELECT DISTINCT por
+        # abajo y "distinct" deja de deduplicar de verdad (cada fecha_analisis
+        # sigue siendo única, así que cada mercado aparecía una vez por fila).
+        mercados = resueltos_base.order_by().values_list("mercado", flat=True).distinct()
+
+        resultados = []
+        for mercado in sorted(mercados):
+            resueltos = resueltos_base.filter(mercado=mercado)
+            total = resueltos.count()
+
+            if total < minimo_para_comparar:
+                resultados.append(
+                    {
+                        "mercado": mercado,
+                        "datos_suficientes": False,
+                        "predicciones_resueltas": total,
+                        "minimo_requerido": minimo_para_comparar,
+                    }
+                )
+                continue
+
+            aciertos = 0
+            brier = 0.0
+            for fila in resueltos:
+                ocurrio = 1 if fila.prediccion_acertada else 0
+                aciertos += ocurrio
+                brier += (fila.probabilidad_seleccion - ocurrio) ** 2
+
+            value_bets = resueltos.filter(
+                recomendacion=AnalisisPartido.Recomendacion.VALUE_BET, pnl_teorico__isnull=False
+            )
+            agregados = value_bets.aggregate(pnl_total=Sum("pnl_teorico"), stake_total=Sum("stake_sugerido"))
+            stake_total = agregados["stake_total"] or Decimal("0")
+
+            resultados.append(
+                {
+                    "mercado": mercado,
+                    "datos_suficientes": True,
+                    "predicciones_resueltas": total,
+                    "accuracy": aciertos / total,
+                    "brier_score": round(brier / total, 4),
+                    "value_bets_resueltas": value_bets.count(),
+                    "roi_teorico": float(agregados["pnl_total"] / stake_total) if stake_total else None,
+                }
+            )
+
+        return Response(resultados)
 
 
 class ConfiguracionView(APIView):
-    """Configuración de riesgo/ingesta actual (solo lectura, sin credenciales)."""
+    """
+    GET: configuración actual -- riesgo (editable, ver abajo) + estado de las
+    fuentes de datos/exchange (solo lectura, sin credenciales).
+    PATCH: actualiza los parámetros de gestión de riesgo (bankroll de
+    referencia, fracción de Kelly, stake máximo, edge mínimo). OddsScanner y
+    PaperExchangeClient leen estos valores en cada escaneo (cada 30s), así
+    que un cambio acá aplica sin reiniciar nada.
+    """
 
     def get(self, request):
-        return Response(
-            {
-                "paper_bankroll": settings.PAPER_BANKROLL,
-                "kelly_fraction": settings.KELLY_FRACTION,
-                "max_stake_per_bet": settings.MAX_STAKE_PER_BET,
-                "min_edge_threshold": settings.MIN_EDGE_THRESHOLD,
-                "watched_leagues": list(settings.WATCHED_LEAGUES),
-                "api_football_configurado": bool(settings.API_FOOTBALL_KEY),
-                "betfair_configurado": bool(
-                    settings.BETFAIR_APP_KEY
-                    and settings.BETFAIR_USERNAME
-                    and settings.BETFAIR_PASSWORD
-                    and settings.BETFAIR_CERT_PATH
-                ),
-                "modo_exchange": "BETFAIR"
-                if (
-                    settings.BETFAIR_APP_KEY
-                    and settings.BETFAIR_USERNAME
-                    and settings.BETFAIR_PASSWORD
-                    and settings.BETFAIR_CERT_PATH
-                )
-                else "PAPER",
-            }
-        )
+        return Response(self._serializar(ConfiguracionRiesgo.actual()))
+
+    def patch(self, request):
+        config = ConfiguracionRiesgo.actual()
+        serializer = ConfiguracionRiesgoSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(self._serializar(config))
+
+    def _serializar(self, config):
+        return {
+            "paper_bankroll": config.paper_bankroll,
+            "kelly_fraction": config.kelly_fraction,
+            "max_stake_per_bet": config.max_stake_per_bet,
+            "min_edge_threshold": config.min_edge_threshold,
+            "actualizado_en": config.actualizado_en,
+            "watched_leagues": list(settings.WATCHED_LEAGUES),
+            "api_football_configurado": bool(settings.API_FOOTBALL_KEY),
+            "betfair_configurado": bool(
+                settings.BETFAIR_APP_KEY
+                and settings.BETFAIR_USERNAME
+                and settings.BETFAIR_PASSWORD
+                and settings.BETFAIR_CERT_PATH
+            ),
+            "modo_exchange": "BETFAIR"
+            if (
+                settings.BETFAIR_APP_KEY
+                and settings.BETFAIR_USERNAME
+                and settings.BETFAIR_PASSWORD
+                and settings.BETFAIR_CERT_PATH
+            )
+            else "PAPER",
+        }

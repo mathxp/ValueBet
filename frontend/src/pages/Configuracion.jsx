@@ -2,22 +2,75 @@ import { useEffect, useState } from "react";
 
 import Card from "../components/Card";
 import InfoBox from "../components/InfoBox";
-import api from "../services/api";
+import { actualizarConfiguracionRiesgo, getConfiguracion } from "../services/api";
 import { formatCurrency, formatPercent } from "../utils/format";
+
+const CAMPOS_RIESGO = [
+  { key: "paper_bankroll", label: "Bankroll de referencia", tipo: "monto" },
+  { key: "kelly_fraction", label: "Fracción de Kelly", tipo: "porcentaje" },
+  { key: "max_stake_per_bet", label: "Stake máximo sugerido", tipo: "monto" },
+  { key: "min_edge_threshold", label: "Edge mínimo para recomendar", tipo: "porcentaje" },
+];
+
+function aFormulario(config) {
+  return {
+    paper_bankroll: String(config.paper_bankroll),
+    kelly_fraction: String(Number(config.kelly_fraction) * 100),
+    max_stake_per_bet: String(config.max_stake_per_bet),
+    min_edge_threshold: String(Number(config.min_edge_threshold) * 100),
+  };
+}
 
 export default function Configuracion() {
   const [config, setConfig] = useState(null);
   const [error, setError] = useState(null);
+  const [editando, setEditando] = useState(false);
+  const [form, setForm] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardado, setErrorGuardado] = useState(null);
 
   useEffect(() => {
-    api
-      .get("config/")
-      .then((r) => setConfig(r.data))
+    getConfiguracion()
+      .then(setConfig)
       .catch((err) => setError(err.message));
   }, []);
 
   if (error) return <p className="page-status page-status--error">Error: {error}</p>;
   if (!config) return <p className="page-status">Cargando...</p>;
+
+  const iniciarEdicion = () => {
+    setForm(aFormulario(config));
+    setErrorGuardado(null);
+    setEditando(true);
+  };
+
+  const cancelar = () => {
+    setEditando(false);
+    setErrorGuardado(null);
+  };
+
+  const guardar = async (e) => {
+    e.preventDefault();
+    setGuardando(true);
+    setErrorGuardado(null);
+    try {
+      const cambios = {
+        paper_bankroll: Number(form.paper_bankroll),
+        kelly_fraction: Number(form.kelly_fraction) / 100,
+        max_stake_per_bet: Number(form.max_stake_per_bet),
+        min_edge_threshold: Number(form.min_edge_threshold) / 100,
+      };
+      const actualizada = await actualizarConfiguracionRiesgo(cambios);
+      setConfig(actualizada);
+      setEditando(false);
+    } catch (err) {
+      const detalle = err.response?.data;
+      const primerError = detalle && Object.values(detalle).flat()[0];
+      setErrorGuardado(primerError || "No se pudo guardar. Revisá los valores.");
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   return (
     <div className="config-page">
@@ -54,35 +107,71 @@ export default function Configuracion() {
         </p>
       </InfoBox>
 
-      <Card title="Gestión de riesgo (Kelly fraccional)">
-        <dl className="config-list">
-          <div>
-            <dt>Bankroll de referencia</dt>
-            <dd>{formatCurrency(config.paper_bankroll)}</dd>
-          </div>
-          <div>
-            <dt>Fracción de Kelly</dt>
-            <dd>{formatPercent(config.kelly_fraction)}</dd>
-          </div>
-          <div>
-            <dt>Stake máximo sugerido</dt>
-            <dd>{formatCurrency(config.max_stake_per_bet)}</dd>
-          </div>
-          <div>
-            <dt>Edge mínimo para recomendar</dt>
-            <dd>{formatPercent(config.min_edge_threshold)}</dd>
-          </div>
-          <div>
-            <dt>Exchange conectado</dt>
-            <dd>{config.betfair_configurado ? "Betfair" : "Ninguno (solo cuotas de referencia)"}</dd>
-          </div>
-        </dl>
+      <Card
+        title="Gestión de riesgo (Kelly fraccional)"
+        action={
+          !editando && (
+            <button type="button" className="config-form__editar" onClick={iniciarEdicion}>
+              Editar
+            </button>
+          )
+        }
+      >
+        {editando ? (
+          <form className="config-form" onSubmit={guardar}>
+            {CAMPOS_RIESGO.map(({ key, label, tipo }) => (
+              <label key={key} className="config-form__campo">
+                <span>
+                  {label} {tipo === "porcentaje" ? "(%)" : "(CLP)"}
+                </span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={form[key]}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  required
+                />
+              </label>
+            ))}
+            {errorGuardado && <p className="config-form__error">{errorGuardado}</p>}
+            <div className="config-form__acciones">
+              <button type="submit" disabled={guardando}>
+                {guardando ? "Guardando..." : "Guardar"}
+              </button>
+              <button type="button" onClick={cancelar} disabled={guardando}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <dl className="config-list">
+            <div>
+              <dt>Bankroll de referencia</dt>
+              <dd>{formatCurrency(config.paper_bankroll)}</dd>
+            </div>
+            <div>
+              <dt>Fracción de Kelly</dt>
+              <dd>{formatPercent(config.kelly_fraction)}</dd>
+            </div>
+            <div>
+              <dt>Stake máximo sugerido</dt>
+              <dd>{formatCurrency(config.max_stake_per_bet)}</dd>
+            </div>
+            <div>
+              <dt>Edge mínimo para recomendar</dt>
+              <dd>{formatPercent(config.min_edge_threshold)}</dd>
+            </div>
+            <div>
+              <dt>Exchange conectado</dt>
+              <dd>{config.betfair_configurado ? "Betfair" : "Ninguno (solo cuotas de referencia)"}</dd>
+            </div>
+          </dl>
+        )}
         <p className="config-hint">
-          Se ajustan con variables de entorno (<code>PAPER_BANKROLL</code>,{" "}
-          <code>KELLY_FRACTION</code>, <code>MAX_STAKE_PER_BET</code>,{" "}
-          <code>MIN_EDGE_THRESHOLD</code>) en <code>backend/.env</code> — actualizá{" "}
-          <code>PAPER_BANKROLL</code> cuando cambie tu saldo real, no son editables desde acá
-          todavía.
+          Un cambio acá aplica en el próximo escaneo (cada 30s) -- no hace falta reiniciar nada.
+          Actualizá <strong>Bankroll de referencia</strong> cuando cambie tu saldo real en la
+          casa/exchange.
         </p>
       </Card>
     </div>

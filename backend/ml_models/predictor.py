@@ -33,7 +33,7 @@ def _poisson_pmf(k: int, lam: float) -> float:
     return math.exp(-lam) * (lam**k) / math.factorial(k)
 
 
-def _probabilidades_1x2_por_poisson(xg_local: float, xg_visitante: float) -> dict[str, float]:
+def probabilidades_1x2_por_poisson(xg_local: float, xg_visitante: float) -> dict[str, float]:
     """
     Modelo de Poisson independiente: asume goles de cada equipo ~ Poisson(xG),
     y suma la probabilidad conjunta de cada marcador posible para obtener
@@ -57,7 +57,7 @@ def _probabilidades_1x2_por_poisson(xg_local: float, xg_visitante: float) -> dic
     return {"LOCAL": prob_local, "EMPATE": prob_empate, "VISITANTE": prob_visitante}
 
 
-def _distribucion_goles_totales(xg_local: float, xg_visitante: float) -> dict[int, float]:
+def distribucion_goles_totales(xg_local: float, xg_visitante: float) -> dict[int, float]:
     """P(total de goles del partido == k) para k = 0..2*MAX_GOLES_SIMULADOS."""
     xg_local = max(xg_local, 0.01)
     xg_visitante = max(xg_visitante, 0.01)
@@ -73,7 +73,7 @@ def _distribucion_goles_totales(xg_local: float, xg_visitante: float) -> dict[in
     return distribucion
 
 
-def _probabilidad_over(distribucion: dict[int, float], linea: float) -> float:
+def probabilidad_over(distribucion: dict[int, float], linea: float) -> float:
     """P(total de goles > linea). `linea` debe ser un valor .5 (2.5, 3.5, ...) para que
     el resultado nunca empate justo en la línea (el total de goles siempre es entero)."""
     return sum(p for total, p in distribucion.items() if total > linea)
@@ -100,6 +100,7 @@ class MatchPredictor:
 
     def __init__(self):
         self.modelo = _cargar_modelo_entrenado()
+        self._curvas_calibracion_cache: dict[str, list | None] = {}
 
     def predecir_goles(self, partido: Partido) -> tuple[float, float] | None:
         """xG proyectado (local, visitante). Solo existe en el camino de Poisson."""
@@ -115,7 +116,7 @@ class MatchPredictor:
         goles = self.predecir_goles(partido)
         if goles is None:
             return None
-        return _probabilidades_1x2_por_poisson(*goles)
+        return probabilidades_1x2_por_poisson(*goles)
 
     def predecir_probabilidad_over(self, partido: Partido, linea: float) -> float | None:
         """
@@ -123,12 +124,29 @@ class MatchPredictor:
         Se deriva de la misma proyección de xG que predecir_goles -- no depende del
         modelo entrenado (solo del camino de Poisson), ya que el mercado 1X2 y el de
         goles totales comparten la misma distribución conjunta de marcadores.
+
+        La probabilidad cruda se corrige con la curva de calibración medida
+        contra resultados reales (ver `_calibrar` y
+        `manage.py backtest_modelo --guardar-calibracion`) -- si todavía no
+        hay curva para esta línea, se usa la probabilidad cruda tal cual.
         """
         goles = self.predecir_goles(partido)
         if goles is None:
             return None
-        distribucion = _distribucion_goles_totales(*goles)
-        return _probabilidad_over(distribucion, linea)
+        distribucion = distribucion_goles_totales(*goles)
+        probabilidad_cruda = probabilidad_over(distribucion, linea)
+        return self._calibrar(f"OVER_UNDER_{linea}", probabilidad_cruda)
+
+    def _calibrar(self, mercado: str, probabilidad_cruda: float) -> float:
+        from ml_models.pipelines.calibracion import aplicar_calibracion
+
+        if mercado not in self._curvas_calibracion_cache:
+            from db_models.models import CalibracionMercado
+
+            fila = CalibracionMercado.objects.filter(mercado=mercado).first()
+            self._curvas_calibracion_cache[mercado] = fila.puntos if fila else None
+
+        return aplicar_calibracion(self._curvas_calibracion_cache[mercado], probabilidad_cruda)
 
     def _predecir_con_modelo(self, partido: Partido) -> dict[str, float]:
         features = build_features(partido.metricas_avanzadas)

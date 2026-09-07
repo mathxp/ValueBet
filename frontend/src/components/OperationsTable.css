@@ -11,20 +11,28 @@
 .operations-table th {
   text-align: left;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  padding: 8px 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--gridline);
   white-space: nowrap;
 }
 
 .operations-table td {
-  padding: 10px 12px;
+  padding: 12px;
   border-bottom: 1px solid var(--gridline);
   color: var(--text-primary);
   white-space: nowrap;
+}
+
+.operations-table tbody tr {
+  transition: background 0.12s ease;
+}
+
+.operations-table tbody tr:hover {
+  background: var(--surface-2);
 }
 
 .operations-table__empty {
@@ -34,10 +42,12 @@
 
 .is-positive {
   color: var(--success-text);
+  font-weight: 600;
 }
 
 .is-negative {
   color: var(--status-critical);
+  font-weight: 600;
 }
 
 .operations-table__apuesta {
@@ -58,22 +68,54 @@
 }
 
 .operations-table__acciones button {
-  background: var(--surface-1);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: var(--text-secondary);
   cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .operations-table__acciones button:hover:not(:disabled) {
-  border-color: var(--series-1);
-  color: var(--series-1);
+  transform: translateY(-1px);
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
 }
 
 .operations-table__acciones button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+}
+
+.operations-table__acciones .operations-table__accion--primary {
+  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-strong));
+  border-color: transparent;
+  color: #fff;
+}
+
+.operations-table__acciones .operations-table__accion--good {
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-strong));
+  border-color: transparent;
+  color: #fff;
+}
+
+.operations-table__acciones .operations-table__accion--danger {
+  border-color: color-mix(in srgb, var(--status-critical) 45%, transparent);
+  color: var(--status-critical);
+}
+
+.operations-table__acciones .operations-table__accion--danger:hover:not(:disabled) {
+  border-color: var(--status-critical);
+  color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 10%, var(--surface-2));
+}
+
+.operations-table__acciones .operations-table__accion--primary:hover:not(:disabled),
+.operations-table__acciones .operations-table__accion--good:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.06);
 }

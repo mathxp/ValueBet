@@ -11,13 +11,15 @@ from ml_models.pipelines.team_ratings import (
 )
 
 
-def _crear_finalizado(local, visitante, dias_atras, gl, gv):
+def _crear_finalizado(local, visitante, dias_atras, gl, gv, proxy_xg=None):
+    metricas = {"proxy_xg": proxy_xg} if proxy_xg else {}
     return Partido.objects.create(
         equipo_local=local,
         equipo_visitante=visitante,
         fecha_hora=timezone.now() - timedelta(days=dias_atras),
         estado=Partido.Estado.FINALIZADO,
         resultado={"local": gl, "visitante": gv},
+        metricas_avanzadas=metricas,
     )
 
 
@@ -61,6 +63,29 @@ class CalcularRatingsTests(TestCase):
         ratings = calcular_ratings()
         self.assertLess(ratings[nuevo.api_football_id].ataque, 5.0)
 
+    def test_proxy_xg_atenua_un_resultado_perdido_por_varianza(self):
+        """Un equipo que domina por xG pero pierde 0-1 no debería registrar
+        el mismo ataque "real" (0) que un equipo que de verdad no generó
+        nada -- el proxy de xG (cuando está disponible) mezcla la señal."""
+        dominante = Equipo.objects.create(nombre="Dominante", api_football_id=92006)
+        rival = Equipo.objects.create(nombre="Rival", api_football_id=92007)
+        for i in range(5):
+            _crear_finalizado(
+                dominante, rival, dias_atras=i + 1, gl=0, gv=1,
+                proxy_xg={"92006": 2.4, "92007": 0.3},
+            )
+        ratings_con_proxy = calcular_ratings()
+
+        sin_proxy = Equipo.objects.create(nombre="SinProxy", api_football_id=92008)
+        for i in range(5):
+            _crear_finalizado(sin_proxy, rival, dias_atras=i + 1, gl=0, gv=1)
+        ratings_sin_proxy = calcular_ratings()
+
+        self.assertGreater(
+            ratings_con_proxy[dominante.api_football_id].ataque,
+            ratings_sin_proxy[sin_proxy.api_football_id].ataque,
+        )
+
 
 class ProyectarXgTests(TestCase):
     def setUp(self):
@@ -84,7 +109,7 @@ class ProyectarXgTests(TestCase):
     def test_jugar_de_local_aumenta_la_proyeccion_del_mismo_equipo(self):
         """Valida la ventaja de localía: el mismo equipo debería proyectar más
         goles jugando de local que de visita contra el mismo rival. Para que
-        _factor_localia() (que mide la ventaja global, no por equipo) detecte
+        factor_localia() (que mide la ventaja global, no por equipo) detecte
         algo, los datos fabricados necesitan una asimetría real entre local y
         visita -- acá el local siempre anota más que el visitante, sea quien sea."""
         for i in range(10):

@@ -47,17 +47,54 @@ class ConfidenceScoreTests(SimpleTestCase):
 
 
 class ValueScoreTests(SimpleTestCase):
+    def _score(self, ev, **overrides):
+        base = dict(
+            ev=ev,
+            data_quality_score=80,
+            confidence_score=80,
+            calibrado=True,
+            partidos_local=15,
+            partidos_visitante=15,
+            es_anomalia=False,
+        )
+        base.update(overrides)
+        return calcular_value_score(**base)
+
     def test_cero_si_ev_no_es_positivo(self):
-        self.assertEqual(calcular_value_score(0, 90), 0)
-        self.assertEqual(calcular_value_score(-0.1, 90), 0)
-        self.assertEqual(calcular_value_score(None, 90), 0)
+        self.assertEqual(self._score(0), 0)
+        self.assertEqual(self._score(-0.1), 0)
+        self.assertEqual(self._score(None), 0)
+
+    def test_cero_si_es_anomalia_aunque_el_ev_sea_positivo(self):
+        self.assertEqual(self._score(0.3, es_anomalia=True), 0)
 
     def test_mayor_confianza_da_mayor_score_con_el_mismo_ev(self):
-        bajo = calcular_value_score(0.2, 30)
-        alto = calcular_value_score(0.2, 90)
+        bajo = self._score(0.2, confidence_score=30)
+        alto = self._score(0.2, confidence_score=90)
         self.assertLess(bajo, alto)
 
     def test_mayor_ev_da_mayor_score_con_la_misma_confianza(self):
-        chico = calcular_value_score(0.05, 80)
-        grande = calcular_value_score(0.3, 80)
+        chico = self._score(0.05)
+        grande = self._score(0.3)
         self.assertLess(chico, grande)
+
+    def test_sin_calibracion_da_menor_score(self):
+        con_curva = self._score(0.2, calibrado=True)
+        sin_curva = self._score(0.2, calibrado=False)
+        self.assertLess(sin_curva, con_curva)
+
+    def test_menos_partidos_da_menor_estabilidad(self):
+        pocos = self._score(0.2, partidos_local=3, partidos_visitante=3)
+        muchos = self._score(0.2, partidos_local=15, partidos_visitante=15)
+        self.assertLess(pocos, muchos)
+
+    def test_ev_al_limite_confiable_satura_los_30_puntos_de_ev(self):
+        from trading_engine.risk_manager import EDGE_MAXIMO_CONFIABLE
+
+        en_el_limite = self._score(EDGE_MAXIMO_CONFIABLE)
+        mas_alla_no_deberia_llegar_aca = self._score(EDGE_MAXIMO_CONFIABLE * 2)
+        # calcular_value_score no topa el EV en sí (eso lo hace edge_extremo
+        # en risk_manager antes de llegar acá) -- pero el componente EV del
+        # score sí satura en 30, así que ambos casos deberían dar el mismo
+        # puntaje si todo lo demás es igual.
+        self.assertEqual(en_el_limite, mas_alla_no_deberia_llegar_aca)

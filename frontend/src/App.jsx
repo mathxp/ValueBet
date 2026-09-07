@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 
 import "./App.css";
+import logoMark from "./assets/logo-mark.png";
 import Configuracion from "./pages/Configuracion";
 import Equipos from "./pages/Equipos";
 import Predicciones from "./pages/Predicciones";
@@ -11,8 +12,11 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header__brand">
-          <span className="app-header__brand-name">ValueBet</span>
-          <span className="app-header__brand-tag">Análisis predictivo · Primera División Chile</span>
+          <img src={logoMark} alt="" className="app-header__brand-logo" />
+          <div className="app-header__brand-text">
+            <span className="app-header__brand-name">ValueBet</span>
+            <span className="app-header__brand-tag">Análisis predictivo · Primera División Chile</span>
+          </div>
         </div>
         <nav className="app-nav">
           <NavLink to="/" end>

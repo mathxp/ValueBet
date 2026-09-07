@@ -41,6 +41,27 @@ export function formatSeleccion(mercado, seleccion) {
   return seleccion;
 }
 
+export const ESTADO_OPERACION_CONFIG = {
+  RECOMMENDED: { label: "Recomendada", tone: "info", icon: "◐" },
+  ACCEPTED: { label: "Aceptada", tone: "warning", icon: "●" },
+  DISCARDED: { label: "Descartada", tone: "muted", icon: "✕" },
+  WON: { label: "Ganada", tone: "good", icon: "▲" },
+  LOST: { label: "Perdida", tone: "critical", icon: "▼" },
+  VOID: { label: "Anulada", tone: "muted", icon: "○" },
+};
+
+const NIVELES_CONFIANZA = [
+  { min: 90, emoji: "🔵", label: "Muy alta" },
+  { min: 75, emoji: "🟢", label: "Alta" },
+  { min: 60, emoji: "🟡", label: "Media" },
+  { min: 40, emoji: "🟠", label: "Baja" },
+  { min: 0, emoji: "🔴", label: "Muy baja" },
+];
+
+export function nivelConfianza(valor) {
+  return NIVELES_CONFIANZA.find((nivel) => valor >= nivel.min) ?? NIVELES_CONFIANZA[NIVELES_CONFIANZA.length - 1];
+}
+
 export function formatDateTime(value) {
   if (!value) return "-";
   return new Date(value).toLocaleString("es-CL", {
