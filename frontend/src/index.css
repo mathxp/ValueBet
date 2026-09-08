@@ -1,9 +1,54 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
   /* Brand -- anclado al logo (navy + verde). Azul para interacción/foco/
-     gráficos, verde para acciones positivas y crecimiento (xG, ganancias). */
+     gráficos, verde para acciones positivas y crecimiento (xG, ganancias).
+     Oscuro por defecto (pedido explícito) -- el claro queda disponible bajo
+     [data-theme="light"] por si en algún momento se agrega un selector. */
   --brand-navy: #0f2545;
+  --brand-blue: #5b8def;
+  --brand-blue-strong: #7ba4f4;
+  --brand-green: #34d372;
+  --brand-green-strong: #4ade80;
+
+  --surface-0: #0b1220;
+  --surface-1: #131b2c;
+  --surface-2: #1a2438;
+  --page: #080d17;
+
+  --text-primary: #f3f6fb;
+  --text-secondary: #aab4c8;
+  --text-muted: #6d7891;
+
+  --gridline: #232e45;
+  --baseline: #34405c;
+  --border: rgba(255, 255, 255, 0.09);
+
+  --series-1: var(--brand-blue);
+  --series-1-strong: var(--brand-blue-strong);
+
+  --status-good: #34d372;
+  --status-warning: #f2a93c;
+  --status-serious: #f0855a;
+  --status-critical: #f16565;
+  --success-text: #4ade80;
+  --negative: #f16565;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 30%, transparent);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Manrope", "Inter", system-ui, sans-serif;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
   --brand-blue: #2563eb;
   --brand-blue-strong: #1d4ed8;
   --brand-green: #16a34a;
@@ -35,85 +80,6 @@
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.05);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 22%, transparent);
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Manrope", "Inter", system-ui, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --brand-blue: #5b8def;
-    --brand-blue-strong: #7ba4f4;
-    --brand-green: #34d372;
-    --brand-green-strong: #4ade80;
-
-    --surface-0: #0b1220;
-    --surface-1: #131b2c;
-    --surface-2: #1a2438;
-    --page: #0b1220;
-
-    --text-primary: #f3f6fb;
-    --text-secondary: #aab4c8;
-    --text-muted: #6d7891;
-
-    --gridline: #232e45;
-    --baseline: #34405c;
-    --border: rgba(255, 255, 255, 0.09);
-
-    --series-1: var(--brand-blue);
-    --series-1-strong: var(--brand-blue-strong);
-
-    --status-good: #34d372;
-    --status-warning: #f2a93c;
-    --status-serious: #f0855a;
-    --status-critical: #f16565;
-    --success-text: #4ade80;
-    --negative: #f16565;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 30%, transparent);
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --brand-blue: #5b8def;
-  --brand-blue-strong: #7ba4f4;
-  --brand-green: #34d372;
-  --brand-green-strong: #4ade80;
-
-  --surface-0: #0b1220;
-  --surface-1: #131b2c;
-  --surface-2: #1a2438;
-  --page: #0b1220;
-
-  --text-primary: #f3f6fb;
-  --text-secondary: #aab4c8;
-  --text-muted: #6d7891;
-
-  --gridline: #232e45;
-  --baseline: #34405c;
-  --border: rgba(255, 255, 255, 0.09);
-
-  --series-1: var(--brand-blue);
-  --series-1-strong: var(--brand-blue-strong);
-
-  --status-good: #34d372;
-  --status-warning: #f2a93c;
-  --status-serious: #f0855a;
-  --status-critical: #f16565;
-  --success-text: #4ade80;
-  --negative: #f16565;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 30%, transparent);
 }
 
 * {
@@ -125,7 +91,7 @@ body {
   background: var(--page);
   background-image: radial-gradient(
     ellipse 1200px 480px at 50% -10%,
-    color-mix(in srgb, var(--brand-blue) 7%, transparent),
+    color-mix(in srgb, var(--brand-blue) 12%, transparent),
     transparent 60%
   );
   background-attachment: fixed;

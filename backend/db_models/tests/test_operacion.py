@@ -54,3 +54,17 @@ class OperacionTests(TestCase):
         self.operacion.marcar_anulada()
         self.assertEqual(self.operacion.estado, Operacion.Estado.ANULADA)
         self.assertEqual(self.operacion.pnl, Decimal("0"))
+
+    def test_revertir_a_aceptada_deshace_un_ganada_por_error(self):
+        self.operacion.aceptar()
+        self.operacion.marcar_ganada()
+        self.operacion.revertir_a_aceptada()
+        self.assertEqual(self.operacion.estado, Operacion.Estado.ACEPTADA)
+        self.assertIsNone(self.operacion.pnl)
+
+    def test_revertir_a_aceptada_deshace_un_perdida_por_error(self):
+        self.operacion.aceptar()
+        self.operacion.marcar_perdida()
+        self.operacion.revertir_a_aceptada()
+        self.assertEqual(self.operacion.estado, Operacion.Estado.ACEPTADA)
+        self.assertIsNone(self.operacion.pnl)

@@ -7,37 +7,96 @@ import Equipos from "./pages/Equipos";
 import Predicciones from "./pages/Predicciones";
 import Recomendaciones from "./pages/Recomendaciones";
 
+function IconoIndicador() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 17 9 11 13 15 21 6" />
+      <polyline points="15 6 21 6 21 12" />
+    </svg>
+  );
+}
+
+function IconoEquipos() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function IconoRecomendaciones() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+function IconoConfiguracion() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="21" x2="4" y2="14" />
+      <line x1="4" y1="10" x2="4" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12" y2="3" />
+      <line x1="20" y1="21" x2="20" y2="16" />
+      <line x1="20" y1="12" x2="20" y2="3" />
+      <line x1="1" y1="14" x2="7" y2="14" />
+      <line x1="9" y1="8" x2="15" y2="8" />
+      <line x1="17" y1="16" x2="23" y2="16" />
+    </svg>
+  );
+}
+
 export default function App() {
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header__brand">
-          <img src={logoMark} alt="" className="app-header__brand-logo" />
-          <div className="app-header__brand-text">
-            <span className="app-header__brand-name">ValueBet</span>
-            <span className="app-header__brand-tag">Análisis predictivo · Primera División Chile</span>
+      <aside className="app-sidebar">
+        <div className="app-sidebar__brand">
+          <img src={logoMark} alt="" className="app-sidebar__brand-logo" />
+          <div className="app-sidebar__brand-text">
+            <span className="app-sidebar__brand-name">ValueBet</span>
+            <span className="app-sidebar__brand-tag">Primera División Chile</span>
           </div>
         </div>
-        <nav className="app-nav">
-          <NavLink to="/" end>
-            Predicciones
-          </NavLink>
-          <NavLink to="/equipos">Equipos</NavLink>
-          <NavLink to="/recomendaciones" className="app-nav__secondary">
-            Recomendaciones
-          </NavLink>
-          <NavLink to="/configuracion">Configuración</NavLink>
-        </nav>
-      </header>
 
-      <main className="app-main">
-        <Routes>
-          <Route path="/" element={<Predicciones />} />
-          <Route path="/equipos" element={<Equipos />} />
-          <Route path="/recomendaciones" element={<Recomendaciones />} />
-          <Route path="/configuracion" element={<Configuracion />} />
-        </Routes>
-      </main>
+        <nav className="app-sidebar__nav">
+          <NavLink to="/" end>
+            <IconoIndicador />
+            <span>Predicciones</span>
+          </NavLink>
+          <NavLink to="/equipos">
+            <IconoEquipos />
+            <span>Equipos</span>
+          </NavLink>
+          <NavLink to="/recomendaciones">
+            <IconoRecomendaciones />
+            <span>Recomendaciones</span>
+          </NavLink>
+          <NavLink to="/configuracion">
+            <IconoConfiguracion />
+            <span>Configuración</span>
+          </NavLink>
+        </nav>
+
+        <p className="app-sidebar__disclaimer">
+          Herramienta de apoyo a la decisión. No ejecuta apuestas ni garantiza resultados.
+        </p>
+      </aside>
+
+      <div className="app-content">
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<Predicciones />} />
+            <Route path="/equipos" element={<Equipos />} />
+            <Route path="/recomendaciones" element={<Recomendaciones />} />
+            <Route path="/configuracion" element={<Configuracion />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }

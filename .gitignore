@@ -6,6 +6,7 @@ backend/**/__pycache__/
 backend/db.sqlite3
 backend/.env
 backend/staticfiles/
+backend/logs/
 
 # --- Machine learning artifacts ---
 backend/ml_models/weights/*.joblib

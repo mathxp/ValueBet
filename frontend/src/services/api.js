@@ -33,6 +33,8 @@ export const marcarOperacionPerdida = (id) =>
 export const marcarOperacionAnulada = (id) =>
   api.post(`operaciones/${id}/marcar-anulada/`).then((r) => r.data);
 
+export const revertirOperacion = (id) => api.post(`operaciones/${id}/revertir/`).then((r) => r.data);
+
 export const getAnalisis = (params) => api.get("analisis/", { params }).then((r) => r.data);
 
 export const getRendimientoModelo = () =>

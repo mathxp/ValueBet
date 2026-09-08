@@ -1,11 +1,12 @@
 .match-card {
+  position: relative;
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
@@ -13,16 +14,19 @@
 .match-card:hover {
   box-shadow: var(--shadow-md);
   border-color: color-mix(in srgb, var(--brand-blue) 18%, var(--border));
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .match-card__meta {
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text-muted);
   text-transform: capitalize;
 }
 
 .match-card__matchup {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -33,11 +37,28 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0;
+  padding: 8px 0;
 }
 
 .match-card__row + .match-card__row {
   border-top: 1px dashed var(--gridline);
+}
+
+.match-card__vs {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+  pointer-events: none;
 }
 
 .match-card__team {
@@ -49,10 +70,13 @@
 }
 
 .match-card__crest {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
   flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  padding: 3px;
 }
 
 .match-card__team-name {
@@ -82,15 +106,29 @@
 }
 
 .match-card__favorito {
-  margin: 0;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
   color: var(--text-secondary);
   border-top: 1px solid var(--gridline);
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
 .match-card__favorito strong {
   color: var(--text-primary);
+}
+
+.match-card__favorito-badge {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--brand-green-strong);
+  background: color-mix(in srgb, var(--brand-green) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-green) 35%, transparent);
+  border-radius: 999px;
+  padding: 3px 9px;
+  flex-shrink: 0;
 }
 
 .match-card__hint {

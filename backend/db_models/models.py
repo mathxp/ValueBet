@@ -197,6 +197,17 @@ class Operacion(models.Model):
         self.estado = self.Estado.ANULADA
         self.save(update_fields=["pnl", "estado", "actualizado_en"])
 
+    def revertir_a_aceptada(self):
+        """
+        Deshace un Ganó/Perdió/Anulada marcado por error (ej. un toque
+        accidental en el celular antes de que el partido siquiera empezara)
+        -- vuelve a ACEPTADA y borra el PNL calculado, para poder decidir de
+        nuevo cuando el partido realmente termine.
+        """
+        self.pnl = None
+        self.estado = self.Estado.ACEPTADA
+        self.save(update_fields=["pnl", "estado", "actualizado_en"])
+
 
 class AnalisisPartido(models.Model):
     """

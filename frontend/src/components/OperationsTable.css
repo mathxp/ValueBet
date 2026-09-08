@@ -64,19 +64,42 @@
 
 .operations-table__acciones {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 150px;
 }
 
 .operations-table__acciones button {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 3px 9px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-secondary);
   cursor: pointer;
   transition: transform 0.1s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.operations-table__deshacer {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.operations-table__deshacer:hover:not(:disabled) {
+  color: var(--text-secondary);
+  border-color: var(--text-muted);
+}
+
+.operations-table__deshacer:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .operations-table__acciones button:hover:not(:disabled) {

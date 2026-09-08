@@ -7,6 +7,7 @@ import {
   marcarOperacionAnulada,
   marcarOperacionGanada,
   marcarOperacionPerdida,
+  revertirOperacion,
 } from "../services/api";
 import {
   formatCurrency,
@@ -34,6 +35,16 @@ function AccionesOperacion({ operacion, onCambiar }) {
     }
   };
 
+  // Ganó/Perdió/Anulada calculan PNL y son fáciles de tocar sin querer en el
+  // celular (los botones cambian de posición justo después de "Aceptar" --
+  // un segundo toque accidental cae directo acá). La confirmación frena eso:
+  // un doble-toque en el mismo lugar ya no alcanza para confirmar solo.
+  const ejecutarConConfirmacion = (accion, mensaje) => {
+    if (window.confirm(mensaje)) {
+      ejecutar(accion);
+    }
+  };
+
   if (operacion.estado === "RECOMMENDED") {
     return (
       <div className="operations-table__acciones">
@@ -57,21 +68,46 @@ function AccionesOperacion({ operacion, onCambiar }) {
         <button
           className="operations-table__accion--good"
           disabled={enviando}
-          onClick={() => ejecutar(marcarOperacionGanada)}
+          onClick={() =>
+            ejecutarConConfirmacion(marcarOperacionGanada, "¿Confirmás que esta apuesta ganó? Calcula el PNL.")
+          }
         >
           Ganó
         </button>
         <button
           className="operations-table__accion--danger"
           disabled={enviando}
-          onClick={() => ejecutar(marcarOperacionPerdida)}
+          onClick={() => ejecutarConConfirmacion(marcarOperacionPerdida, "¿Confirmás que esta apuesta perdió?")}
         >
           Perdió
         </button>
-        <button disabled={enviando} onClick={() => ejecutar(marcarOperacionAnulada)}>
+        <button
+          disabled={enviando}
+          onClick={() =>
+            ejecutarConConfirmacion(
+              marcarOperacionAnulada,
+              "¿Confirmás anular (push)? Se devuelve el stake, sin efecto en el PNL."
+            )
+          }
+        >
           Anulada
         </button>
       </div>
+    );
+  }
+
+  if (["WON", "LOST", "VOID"].includes(operacion.estado)) {
+    return (
+      <button
+        className="operations-table__deshacer"
+        disabled={enviando}
+        onClick={() =>
+          ejecutarConConfirmacion(revertirOperacion, '¿Deshacer esto y volver a "Aceptada"? Se borra el PNL calculado.')
+        }
+        title='Volver a "Aceptada" -- por si se marcó por error'
+      >
+        Deshacer
+      </button>
     );
   }
 

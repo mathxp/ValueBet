@@ -118,6 +118,48 @@ reconciliación de resultados reales (`db_models/tests`), y los endpoints de la
 API (`api/tests`). No necesita Redis ni credenciales reales -- usa una base de
 datos de prueba aparte que Django crea y destruye solo.
 
+## Acceso desde el celular (misma red Wi-Fi)
+
+Con el backend y el frontend corriendo (ver arriba), para entrar desde el celular:
+
+1. **Encontrá la IP de tu PC en la red** (Windows, PowerShell): `ipconfig` y buscá la
+   `Dirección IPv4` del adaptador Wi-Fi conectado (ej. `192.168.1.8`).
+2. **Agregá esa IP a `backend/.env`** (ya viene comentado en `.env.example`):
+   ```
+   DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.8
+   CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://192.168.1.8:5173
+   ```
+   (`vite.config.js` ya tiene `server.host: true`, así que Vite escucha en todas las
+   interfaces sin cambios adicionales.)
+3. **Levantá Django escuchando en la red, no solo localhost**:
+   ```bash
+   python manage.py runserver 0.0.0.0:8000
+   ```
+4. **Abrí el firewall de Windows** para esos dos puertos -- en una PowerShell **como
+   Administrador** (clic derecho → "Ejecutar como administrador"):
+   ```powershell
+   New-NetFirewallRule -DisplayName "ValueBet Dev - Vite 5173" -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Allow -Profile Any
+   New-NetFirewallRule -DisplayName "ValueBet Dev - Django 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow -Profile Any
+   ```
+   Si el perfil de tu red Wi-Fi en Windows está como "Público" (`Get-NetConnectionProfile`),
+   estas reglas igual dejan pasar el tráfico en esos dos puertos puntuales -- no hace
+   falta cambiar el perfil de red a "Privado".
+5. **En el celular** (conectado al mismo Wi-Fi), abrí `http://192.168.1.8:5173/` en el
+   navegador (Chrome/Safari), usando la IP que sacaste en el paso 1.
+
+### "Instalar" la app en la pantalla de inicio
+
+El dashboard tiene un manifest de PWA (`frontend/public/manifest.json`) con ícono y
+nombre propios. En el celular, abrí el menú del navegador y elegí **"Agregar a
+pantalla de inicio"** (Chrome/Android) o **"Agregar a inicio"** (Safari/iOS) -- queda
+como un ícono más, se abre a pantalla completa sin la barra del navegador.
+
+Esto **no es una instalación real desde una tienda de apps** -- es un atajo del
+navegador. El "banner de instalación" automático que ofrecen algunos navegadores
+(Chrome en Android) generalmente pide HTTPS, y acá se sirve por HTTP dentro de la red
+local -- así que hay que agregarlo a mano desde el menú en vez de esperar el banner,
+pero el resultado visual (ícono propio, sin barra de navegador) es el mismo.
+
 ## Despliegue con Docker
 
 ```bash

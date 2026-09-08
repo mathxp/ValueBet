@@ -61,6 +61,18 @@ class OperacionActionsApiTests(TestCase):
         resp = self.client.post(f"/api/operaciones/{self.operacion.id}/marcar-anulada/")
         self.assertEqual(resp.status_code, 409)
 
+    def test_revertir_deshace_un_ganada_marcado_por_error(self):
+        self.client.post(f"/api/operaciones/{self.operacion.id}/aceptar/")
+        self.client.post(f"/api/operaciones/{self.operacion.id}/marcar-ganada/")
+        resp = self.client.post(f"/api/operaciones/{self.operacion.id}/revertir/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["estado"], "ACCEPTED")
+        self.assertIsNone(resp.json()["pnl"])
+
+    def test_revertir_sobre_una_recomendada_da_conflicto(self):
+        resp = self.client.post(f"/api/operaciones/{self.operacion.id}/revertir/")
+        self.assertEqual(resp.status_code, 409)
+
     def test_descartar_una_recomendada(self):
         resp = self.client.post(f"/api/operaciones/{self.operacion.id}/descartar/")
         self.assertEqual(resp.status_code, 200)

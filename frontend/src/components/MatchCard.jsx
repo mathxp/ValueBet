@@ -40,6 +40,7 @@ export default function MatchCard({ partido, prediccion }) {
 
       <div className="match-card__matchup">
         <FilaEquipo equipo={partido.equipo_local} xg={disponible ? prediccion.xg_local : null} />
+        <span className="match-card__vs">VS</span>
         <FilaEquipo
           equipo={partido.equipo_visitante}
           xg={disponible ? prediccion.xg_visitante : null}
@@ -47,15 +48,18 @@ export default function MatchCard({ partido, prediccion }) {
       </div>
 
       {gana && (
-        <p className="match-card__favorito">
+        <div className="match-card__favorito">
+          <span className="match-card__favorito-badge">{formatPercent(gana.prob)}</span>
           {gana.clave === "EMPATE" ? (
-            <>Resultado más probable: <strong>empate</strong> ({formatPercent(gana.prob)})</>
+            <span>
+              Resultado más probable: <strong>empate</strong>
+            </span>
           ) : (
-            <>
-              Favorito: <strong>{gana.nombre}</strong> gana ({formatPercent(gana.prob)})
-            </>
+            <span>
+              Favorito: <strong>{gana.nombre}</strong>
+            </span>
           )}
-        </p>
+        </div>
       )}
 
       {!disponible && (

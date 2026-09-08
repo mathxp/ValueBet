@@ -17,6 +17,10 @@ const PAGE_SIZE = 25;
 // Líneas históricas: 4.5 ya no se recomienda (ver LINEAS_OVER_UNDER_VALIDAS
 // en el backend), pero sigue en el historial de análisis viejos.
 const MERCADOS_FILTRO = ["1X2", "OVER_UNDER_1.5", "OVER_UNDER_2.5", "OVER_UNDER_3.5", "OVER_UNDER_4.5"];
+// Igual que LINEAS_OVER_UNDER_VALIDAS en el backend -- se usa para no
+// mostrar en "partidos pendientes" un mercado que ya no se escanea (ej. 4.5),
+// que si no quedaría congelado ahí para siempre con su último estado viejo.
+const MERCADOS_VIGENTES = new Set(["1X2", "OVER_UNDER_1.5", "OVER_UNDER_2.5", "OVER_UNDER_3.5"]);
 const TEMPORADAS_FILTRO = ["2022", "2023", "2024", "2025", "2026"];
 
 function labelMercado(mercado) {
@@ -65,6 +69,28 @@ export default function Recomendaciones() {
     setPage(1);
     setter(e.target.value);
   };
+
+  // "Partidos pendientes" es para decidir qué hacer AHORA, no un historial
+  // completo -- si no se dedupe, un partido que se escaneó varias veces (cada
+  // 30s) muestra su análisis viejo y el nuevo juntos, como si el viejo
+  // siguiera vigente (pasó con Over 3.5: la versión sin calibrar y la
+  // calibrada aparecían las dos). Además se excluyen mercados que ya no se
+  // evalúan (ver MERCADOS_VIGENTES) -- si no, una línea retirada (4.5) queda
+  // congelada mostrando para siempre su último resultado, que ya no es real.
+  const analisisVigente = useMemo(() => {
+    const masReciente = new Map();
+    for (const a of analisis) {
+      if (a.mercado !== "GENERAL" && !MERCADOS_VIGENTES.has(a.mercado)) continue;
+      const clave = `${a.partido?.id}|${a.mercado}`;
+      const actual = masReciente.get(clave);
+      if (!actual || new Date(a.fecha_analisis) > new Date(actual.fecha_analisis)) {
+        masReciente.set(clave, a);
+      }
+    }
+    return Array.from(masReciente.values()).sort(
+      (a, b) => new Date(b.fecha_analisis) - new Date(a.fecha_analisis)
+    );
+  }, [analisis]);
 
   const pnlPoints = useMemo(() => {
     let acumulado = 0;
@@ -164,8 +190,8 @@ export default function Recomendaciones() {
             </p>
           </InfoBox>
 
-          <Card title="Análisis de partidos pendientes (incluye los NO BET)">
-            <AnalysisTable analisis={analisis} />
+          <Card title="Análisis de partidos pendientes (solo la versión vigente de cada mercado)">
+            <AnalysisTable analisis={analisisVigente} />
           </Card>
 
           <Card

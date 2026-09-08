@@ -121,6 +121,19 @@ class OperacionViewSet(viewsets.ModelViewSet):
             )
         return None
 
+    def _requiere_estado_en(self, operacion, estados_esperados):
+        if operacion.estado not in estados_esperados:
+            return Response(
+                {
+                    "detail": (
+                        f"La recomendación está en estado {operacion.estado}, se esperaba uno de "
+                        f"{', '.join(estados_esperados)}."
+                    )
+                },
+                status=409,
+            )
+        return None
+
     @action(detail=True, methods=["post"])
     def aceptar(self, request, pk=None):
         operacion = self.get_object()
@@ -165,6 +178,18 @@ class OperacionViewSet(viewsets.ModelViewSet):
         if error:
             return error
         operacion.marcar_anulada()
+        return Response(self.get_serializer(operacion).data)
+
+    @action(detail=True, methods=["post"])
+    def revertir(self, request, pk=None):
+        """Deshace un Ganó/Perdió/Anulada marcado por error -- vuelve a Aceptada sin PNL."""
+        operacion = self.get_object()
+        error = self._requiere_estado_en(
+            operacion, [Operacion.Estado.GANADA, Operacion.Estado.PERDIDA, Operacion.Estado.ANULADA]
+        )
+        if error:
+            return error
+        operacion.revertir_a_aceptada()
         return Response(self.get_serializer(operacion).data)
 
     @action(detail=False, methods=["get"])
