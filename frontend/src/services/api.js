@@ -46,6 +46,8 @@ export const getRendimientoValueBets = () =>
 export const getRendimientoPorMercado = () =>
   api.get("analisis/rendimiento-por-mercado/").then((r) => r.data);
 
+export const getBacktest = () => api.get("analisis/backtest/").then((r) => r.data);
+
 export const getConfiguracion = () => api.get("config/").then((r) => r.data);
 
 export const actualizarConfiguracionRiesgo = (cambios) =>

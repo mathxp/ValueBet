@@ -118,6 +118,24 @@ class MatchPredictor:
             return None
         return probabilidades_1x2_por_poisson(*goles)
 
+    def predecir_probabilidad_1x2(self, partido: Partido, seleccion: str) -> float | None:
+        """
+        P(seleccion) para el mercado 1X2 (LOCAL/EMPATE/VISITANTE), corregida con
+        la curva de calibración medida contra resultados reales (mismo mecanismo
+        que `predecir_probabilidad_over` -- ver `_calibrar`). `predecir()` sigue
+        devolviendo las 3 probabilidades crudas (sin calibrar) para el panel
+        informativo de goles proyectados; esta función es la que debe usarse para
+        Edge/EV/Kelly de una selección puntual, que es donde importa que la
+        probabilidad esté corregida.
+        """
+        probabilidades = self.predecir(partido)
+        if probabilidades is None:
+            return None
+        probabilidad_cruda = probabilidades.get(seleccion)
+        if probabilidad_cruda is None:
+            return None
+        return self._calibrar("1X2", probabilidad_cruda)
+
     def predecir_probabilidad_over(self, partido: Partido, linea: float) -> float | None:
         """
         P(goles totales > linea), ej. linea=2.5 para el mercado "Más de 2.5 goles".

@@ -43,6 +43,12 @@ function calcularFactores(a) {
     favorable: a.confidence_score >= MIN_CONFIDENCE_SCORE,
     texto: `Confianza ${a.confidence_score}/100 (mínimo ${MIN_CONFIDENCE_SCORE})`,
   });
+  if (a.value_score != null) {
+    factores.push({
+      favorable: a.value_score >= 50,
+      texto: `Value Score ${a.value_score}/100 (combina EV, calibración, calidad, confianza y estabilidad)`,
+    });
+  }
 
   return factores;
 }

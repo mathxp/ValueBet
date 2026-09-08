@@ -391,6 +391,10 @@
   font-size: 13px;
 }
 
+.rendimiento-table--backtest .rendimiento-table__row {
+  grid-template-columns: 1.6fr 0.8fr 1.3fr 1.3fr 1.3fr;
+}
+
 .rendimiento-table__row--header {
   color: var(--text-muted);
   font-size: 11px;

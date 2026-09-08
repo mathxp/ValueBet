@@ -24,7 +24,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 
 from data_ingestion.tasks import LINEAS_OVER_UNDER_VALIDAS
-from db_models.models import CalibracionMercado, HistorialCuotas, Partido
+from db_models.models import CalibracionMercado, HistorialCuotas, Partido, ResultadoBacktest
 from ml_models.pipelines.calibracion import calcular_reporte, construir_curva_calibracion
 from ml_models.predictor import distribucion_goles_totales, probabilidad_over, probabilidades_1x2_por_poisson
 from ml_models.pipelines.team_ratings import proyectar_xg
@@ -167,8 +167,10 @@ class Command(BaseCommand):
                 self.stdout.write(f"    {bucket.rango:>8}: n={bucket.n:<4} predicho={bucket.prob_promedio:.1%}  real={bucket.frecuencia_real:.1%}")
 
         self.stdout.write("\n=== Over/Under por línea (incluye 4.5 para auditar por qué se sacó) ===")
+        reportes_over_under = {}
         for linea in LINEAS_OVER_UNDER_AUDITADAS:
             reporte_linea = calcular_reporte(f"OVER_UNDER_{linea}", pares_over_under[linea])
+            reportes_over_under[linea] = reporte_linea
             if not reporte_linea.datos_suficientes:
                 self.stdout.write(f"  Más de {linea}: datos insuficientes ({reporte_linea.n} casos).")
                 continue
@@ -189,7 +191,12 @@ class Command(BaseCommand):
                 )
 
         if options["guardar_calibracion"]:
+            self._guardar_calibracion_1x2(pares_modelo)
             self._guardar_calibracion(pares_over_under)
+            self._guardar_resultado_backtest(
+                evaluados, aciertos_modelo, aciertos_baseline,
+                reporte_modelo, reporte_baseline, reporte_favorito, reportes_over_under,
+            )
 
         self.stdout.write("\n=== ROI simulado (solo partidos con cuota real capturada antes del partido) ===")
         MIN_APUESTAS_ROI = 20
@@ -203,6 +210,26 @@ class Command(BaseCommand):
         else:
             roi = float(pnl_total / stake_total) if stake_total else None
             self.stdout.write(f"  Apuestas simuladas: {apuestas_simuladas}  stake total: {stake_total}  PNL: {pnl_total}  ROI: {roi:.1%}")
+
+    def _guardar_calibracion_1x2(self, pares_modelo: list[tuple[float, int]]):
+        """
+        Guarda la curva de calibración del mercado 1X2 a partir de los pares
+        (probabilidad de la clase, ocurrió) de las 3 clases combinadas
+        (LOCAL/EMPATE/VISITANTE) -- mismo criterio que _guardar_calibracion
+        para Over/Under: sin muestra confiable, se borra la curva vieja en vez
+        de dejarla desactualizada.
+        """
+        self.stdout.write("\n=== Guardando curva de calibración (1X2) ===")
+        curva = construir_curva_calibracion(pares_modelo)
+        if curva is None:
+            borrados, _ = CalibracionMercado.objects.filter(mercado="1X2").delete()
+            self.stdout.write(f"  1X2: sin muestra confiable todavía -- {'se borró la curva vieja' if borrados else 'sin curva'}.")
+            return
+
+        CalibracionMercado.objects.update_or_create(
+            mercado="1X2", defaults={"puntos": curva, "n_total": len(pares_modelo)}
+        )
+        self.stdout.write(f"  1X2: curva guardada con {len(curva)} puntos (n={len(pares_modelo)}).")
 
     def _guardar_calibracion(self, pares_over_under: dict[str, list[tuple[float, int]]]):
         """
@@ -226,3 +253,70 @@ class Command(BaseCommand):
                 mercado=mercado, defaults={"puntos": curva, "n_total": len(pares)}
             )
             self.stdout.write(f"  {mercado}: curva guardada con {len(curva)} puntos (n={len(pares)}).")
+
+    def _guardar_resultado_backtest(
+        self, evaluados, aciertos_modelo, aciertos_baseline,
+        reporte_modelo, reporte_baseline, reporte_favorito, reportes_over_under,
+    ):
+        """
+        Guarda una foto de este backtest en ResultadoBacktest -- lo que hoy
+        sólo se imprime por consola, ahora también queda disponible para el
+        dashboard (correr el backtest completo tarda ~66s, demasiado para un
+        endpoint síncrono). Se guarda para "1X2" y para TODAS las líneas de
+        Over/Under auditadas, incluida 4.5 -- aunque 4.5 no se recomienda en
+        vivo (ver LINEAS_OVER_UNDER_VALIDAS), su diagnóstico es información
+        real que vale la pena mostrar para decidir si en algún momento se
+        reincorpora ya con calibración.
+        """
+        self.stdout.write("\n=== Guardando resultado de backtest (dashboard) ===")
+
+        buckets_favorito = (
+            [
+                {"rango": b.rango, "n": b.n, "predicho": b.prob_promedio, "real": b.frecuencia_real}
+                for b in reporte_favorito.buckets
+                if b.n > 0
+            ]
+            if reporte_favorito.datos_suficientes
+            else []
+        )
+        ResultadoBacktest.objects.update_or_create(
+            mercado="1X2",
+            defaults={
+                "n": evaluados,
+                "brier_score": reporte_modelo.brier_score,
+                "log_loss": reporte_modelo.log_loss,
+                "accuracy": aciertos_modelo / evaluados,
+                "brier_score_baseline": reporte_baseline.brier_score,
+                "log_loss_baseline": reporte_baseline.log_loss,
+                "accuracy_baseline": aciertos_baseline / evaluados,
+                "buckets": buckets_favorito,
+            },
+        )
+        self.stdout.write(f"  1X2: guardado (n={evaluados}).")
+
+        for linea, reporte_linea in reportes_over_under.items():
+            mercado = f"OVER_UNDER_{linea}"
+            if not reporte_linea.datos_suficientes:
+                borrados, _ = ResultadoBacktest.objects.filter(mercado=mercado).delete()
+                self.stdout.write(f"  {mercado}: datos insuficientes -- {'se borró el resultado viejo' if borrados else 'sin guardar'}.")
+                continue
+
+            buckets = [
+                {"rango": b.rango, "n": b.n, "predicho": b.prob_promedio, "real": b.frecuencia_real}
+                for b in reporte_linea.buckets
+                if b.n > 0
+            ]
+            ResultadoBacktest.objects.update_or_create(
+                mercado=mercado,
+                defaults={
+                    "n": reporte_linea.n,
+                    "brier_score": reporte_linea.brier_score,
+                    "log_loss": reporte_linea.log_loss,
+                    "accuracy": None,
+                    "brier_score_baseline": None,
+                    "log_loss_baseline": None,
+                    "accuracy_baseline": None,
+                    "buckets": buckets,
+                },
+            )
+            self.stdout.write(f"  {mercado}: guardado (n={reporte_linea.n}).")

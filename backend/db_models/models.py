@@ -433,6 +433,38 @@ class CalibracionMercado(models.Model):
     n_total = models.PositiveIntegerField(help_text="Cantidad total de casos históricos usados para esta curva.")
     actualizado_en = models.DateTimeField(auto_now=True)
 
+
+class ResultadoBacktest(models.Model):
+    """
+    Foto del último backtest walk-forward guardada por `manage.py
+    backtest_modelo --guardar-calibracion` -- correr el backtest completo
+    tarda ~66s (recalcula ratings para cada uno de los ~1000 partidos
+    evaluados), demasiado lento para un endpoint síncrono, así que el
+    dashboard lee esta foto en vez de recalcular en cada request.
+
+    Una fila por mercado ("1X2" o "OVER_UNDER_1.5", etc.) con las mismas
+    métricas que ya imprime el comando por consola -- accuracy sólo aplica a
+    "1X2" (favorito del modelo vs. favorito del baseline), Over/Under no
+    tiene un "favorito" en el mismo sentido.
+    """
+
+    mercado = models.CharField(max_length=50, unique=True)
+    n = models.PositiveIntegerField(help_text="Cantidad de partidos evaluados para este mercado.")
+    brier_score = models.FloatField()
+    log_loss = models.FloatField()
+    accuracy = models.FloatField(null=True, blank=True)
+    brier_score_baseline = models.FloatField(null=True, blank=True)
+    log_loss_baseline = models.FloatField(null=True, blank=True)
+    accuracy_baseline = models.FloatField(null=True, blank=True)
+    buckets = models.JSONField(
+        default=list,
+        help_text="Reliability diagram: lista de {rango, n, predicho, real} por bucket con muestra suficiente.",
+    )
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["mercado"]
+
     class Meta:
         verbose_name = "Calibración de mercado"
         verbose_name_plural = "Calibraciones de mercado"

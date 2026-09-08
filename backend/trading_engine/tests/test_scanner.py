@@ -70,6 +70,11 @@ class OddsScannerTests(TestCase):
         self.assertEqual(analisis.recomendacion, AnalisisPartido.Recomendacion.NO_BET)
 
     def test_cuota_generosa_genera_value_bet_y_operacion(self):
+        # El escáner exige una curva de calibración medida antes de recomendar
+        # un 1X2 (mismo gate que ya tenía Over/Under, ver sin_calibracion en
+        # scanner.py) -- curva "identidad" (no corrige nada) para aislar el
+        # comportamiento que prueba este test.
+        CalibracionMercado.objects.create(mercado="1X2", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=3204)
         precios = [
             MarketPrice(
                 market_id=str(self.partido.id),
@@ -97,6 +102,7 @@ class OddsScannerTests(TestCase):
     def test_cuota_ajustada_no_genera_value_bet(self):
         """Una cuota que ya refleja bien la probabilidad real no debería
         generar una recomendación, aunque haya datos de sobra."""
+        CalibracionMercado.objects.create(mercado="1X2", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=3204)
         precios = [
             MarketPrice(
                 market_id=str(self.partido.id),
@@ -116,6 +122,7 @@ class OddsScannerTests(TestCase):
         self.assertTrue(analisis.motivo_no_bet)
 
     def test_no_duplica_operacion_en_un_segundo_escaneo(self):
+        CalibracionMercado.objects.create(mercado="1X2", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=3204)
         precios = [
             MarketPrice(
                 market_id=str(self.partido.id),
@@ -205,6 +212,32 @@ class OddsScannerTests(TestCase):
         self.assertEqual(len(operaciones), 1)
         linea_esperada = min(lineas, key=lambda l: abs(float(l) - total_proyectado))
         self.assertEqual(operaciones[0].mercado, f"OVER_UNDER_{linea_esperada}")
+
+    def test_1x2_sin_calibracion_no_genera_value_bet(self):
+        """
+        1X2 tiene el mismo gate que Over/Under: sin curva de calibración
+        medida contra resultados reales (ver manage.py backtest_modelo
+        --guardar-calibracion), un edge aparente positivo no alcanza para
+        recomendar -- antes de esto, 1X2 quedaba afuera de este chequeo (ver
+        predictor.py:predecir_probabilidad_1x2).
+        """
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="1X2",
+                seleccion="LOCAL",
+                precio_back=Decimal("1.20"),
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(operaciones, [])
+        analisis = AnalisisPartido.objects.get(partido=self.partido, mercado="1X2")
+        self.assertEqual(analisis.recomendacion, AnalisisPartido.Recomendacion.ANOMALIA)
+        self.assertIn("calibración", analisis.motivo_no_bet)
 
     def test_over_under_sin_calibracion_no_genera_value_bet(self):
         """

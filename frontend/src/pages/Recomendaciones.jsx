@@ -5,11 +5,17 @@ import Card from "../components/Card";
 import InfoBox from "../components/InfoBox";
 import OperationsTable from "../components/OperationsTable";
 import PnlLineChart from "../components/PnlLineChart";
+import RendimientoBacktest from "../components/RendimientoBacktest";
 import RendimientoModelo from "../components/RendimientoModelo";
 import RendimientoPorMercado from "../components/RendimientoPorMercado";
 import RendimientoValueBets from "../components/RendimientoValueBets";
 import StatTile from "../components/StatTile";
-import { getAnalisis, getOperaciones, getResumenOperaciones } from "../services/api";
+import {
+  getAnalisis,
+  getConfiguracion,
+  getOperaciones,
+  getResumenOperaciones,
+} from "../services/api";
 import { ESTADO_OPERACION_CONFIG, formatCurrency, formatMercado, formatPercent } from "../utils/format";
 
 const PAGE_SIZE = 25;
@@ -29,6 +35,9 @@ function labelMercado(mercado) {
 
 export default function Recomendaciones() {
   const [resumen, setResumen] = useState(null);
+  const [config, setConfig] = useState(null);
+  const [contadorValueBet, setContadorValueBet] = useState(null);
+  const [contadorNoBet, setContadorNoBet] = useState(null);
   const [operaciones, setOperaciones] = useState([]);
   const [analisis, setAnalisis] = useState([]);
   const [page, setPage] = useState(1);
@@ -64,6 +73,20 @@ export default function Recomendaciones() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [page, filtroMercado, filtroEstado, filtroTemporada]);
+
+  useEffect(() => {
+    // Bankroll y conteo de VALUE BET/NO BET: no dependen de página ni
+    // filtros, se piden una sola vez. El conteo sale de `count` en la
+    // respuesta paginada -- ese total ya es correcto sin importar cuántos
+    // resultados trae la página en sí.
+    getConfiguracion().then(setConfig).catch(() => setConfig(null));
+    getAnalisis({ recomendacion: "VALUE_BET" })
+      .then((d) => setContadorValueBet(d.count))
+      .catch(() => setContadorValueBet(null));
+    getAnalisis({ recomendacion: "NO_BET" })
+      .then((d) => setContadorNoBet(d.count))
+      .catch(() => setContadorNoBet(null));
+  }, []);
 
   const cambiarFiltro = (setter) => (e) => {
     setPage(1);
@@ -150,6 +173,7 @@ export default function Recomendaciones() {
             Rendimiento del usuario (solo lo que aceptaste, plata real)
           </h2>
           <div className="dashboard__stats">
+            <StatTile label="Bankroll de referencia" value={formatCurrency(config?.paper_bankroll)} />
             <StatTile
               label="PNL total"
               value={formatCurrency(resumen?.pnl_total)}
@@ -162,10 +186,12 @@ export default function Recomendaciones() {
               dim={resumen ? !resumen.muestra_suficiente : false}
               hint={
                 resumen && !resumen.muestra_suficiente
-                  ? `⚠️ Muestra: ${resumen.finalizadas}/20 -- rendimiento no concluyente todavía`
+                  ? `⚠️ Muestra: ${resumen.finalizadas}/${resumen.minimo_requerido} -- rendimiento no concluyente todavía`
                   : undefined
               }
             />
+            <StatTile label="VALUE BET (histórico)" value={contadorValueBet ?? "-"} />
+            <StatTile label="NO BET (histórico)" value={contadorNoBet ?? "-"} />
           </div>
 
           <Card title="PNL acumulado (de las que aceptaste y ya se jugaron)">
@@ -175,6 +201,8 @@ export default function Recomendaciones() {
           <RendimientoValueBets />
 
           <RendimientoModelo />
+
+          <RendimientoBacktest />
 
           <RendimientoPorMercado />
 

@@ -6,7 +6,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from db_models.models import AnalisisPartido, ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
+from db_models.models import (
+    AnalisisPartido,
+    ConfiguracionRiesgo,
+    Equipo,
+    HistorialCuotas,
+    Operacion,
+    Partido,
+    ResultadoBacktest,
+)
 from db_models.serializers import (
     AnalisisPartidoSerializer,
     ConfiguracionRiesgoSerializer,
@@ -206,12 +214,14 @@ class OperacionViewSet(viewsets.ModelViewSet):
         finalizadas = qs.filter(
             estado__in=[Operacion.Estado.GANADA, Operacion.Estado.PERDIDA]
         ).count()
-        agregados["win_rate"] = (ganadas / finalizadas) if finalizadas else None
-        agregados["finalizadas"] = finalizadas
         # Con pocas apuestas resueltas, el win rate es ruido, no una señal --
         # no tiene sentido estadístico "confiar" en un 50% que sale de 2
         # casos. Mismo mínimo que usa AnalisisPartidoViewSet.rendimiento().
-        agregados["muestra_suficiente"] = finalizadas >= 20
+        minimo_para_comparar = 20
+        agregados["win_rate"] = (ganadas / finalizadas) if finalizadas else None
+        agregados["finalizadas"] = finalizadas
+        agregados["minimo_requerido"] = minimo_para_comparar
+        agregados["muestra_suficiente"] = finalizadas >= minimo_para_comparar
         return Response(agregados)
 
 
@@ -425,6 +435,51 @@ class AnalisisPartidoViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         return Response(resultados)
+
+    @action(detail=False, methods=["get"])
+    def backtest(self, request):
+        """
+        Última foto del backtest walk-forward guardada por `manage.py
+        backtest_modelo --guardar-calibracion` (ver ResultadoBacktest) --
+        correr el backtest completo tarda ~66s (recalcula ratings para cada
+        partido evaluado, sin data leakage), así que este endpoint sirve la
+        foto ya calculada en vez de recalcular en cada request. Con una
+        muestra de ~1000 partidos históricos, esto es lo que da evidencia real
+        de accuracy/calibración -- muy por encima de lo que alcanzan los
+        análisis en vivo todavía (ver rendimiento(), gated a un mínimo de 20).
+        """
+        resultados = ResultadoBacktest.objects.all()
+        if not resultados.exists():
+            return Response(
+                {
+                    "datos_disponibles": False,
+                    "motivo": (
+                        "Todavía no se corrió manage.py backtest_modelo --guardar-calibracion "
+                        "en este entorno."
+                    ),
+                }
+            )
+
+        return Response(
+            {
+                "datos_disponibles": True,
+                "actualizado_en": max(r.actualizado_en for r in resultados),
+                "mercados": [
+                    {
+                        "mercado": r.mercado,
+                        "n": r.n,
+                        "brier_score": r.brier_score,
+                        "log_loss": r.log_loss,
+                        "accuracy": r.accuracy,
+                        "brier_score_baseline": r.brier_score_baseline,
+                        "log_loss_baseline": r.log_loss_baseline,
+                        "accuracy_baseline": r.accuracy_baseline,
+                        "buckets": r.buckets,
+                    }
+                    for r in resultados
+                ],
+            }
+        )
 
 
 class ConfiguracionView(APIView):

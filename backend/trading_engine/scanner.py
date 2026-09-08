@@ -45,11 +45,12 @@ class OddsScanner:
         self.exchange_client = exchange_client or get_exchange_client()
         self.predictor = predictor or MatchPredictor()
         self.config_riesgo = ConfiguracionRiesgo.actual()
-        # Mercados de Over/Under con curva de calibración medida contra
+        # Mercados (1X2 u Over/Under) con curva de calibración medida contra
         # resultados reales (ver manage.py backtest_modelo
-        # --guardar-calibracion) -- exigir esto antes de recomendar un
-        # Over/Under es lo que impide repetir el caso Limache vs Cobresal
-        # (edge +33% con la probabilidad cruda, -18% ya calibrada).
+        # --guardar-calibracion) -- exigir esto antes de recomendar es lo que
+        # impide repetir el caso Limache vs Cobresal (edge +33% con la
+        # probabilidad cruda, -18% ya calibrada) para cualquier mercado, no
+        # sólo Over/Under.
         self.mercados_calibrados = set(CalibracionMercado.objects.values_list("mercado", flat=True))
 
     def _market_id_for(self, partido: Partido) -> str:
@@ -59,8 +60,7 @@ class OddsScanner:
         """Probabilidad del modelo para una selección, sea del mercado 1X2 o de
         Over/Under de goles totales (mercado="OVER_UNDER_2.5", etc.)."""
         if mercado == "1X2":
-            probabilidades = self.predictor.predecir(partido)
-            return probabilidades.get(seleccion) if probabilidades else None
+            return self.predictor.predecir_probabilidad_1x2(partido, seleccion)
 
         if mercado.startswith("OVER_UNDER_"):
             linea = float(mercado.removeprefix("OVER_UNDER_"))
@@ -240,11 +240,18 @@ class OddsScanner:
             if probabilidad is None:
                 continue
 
+            # La fracción de Kelly configurada es el techo (ej. 25%, "quarter
+            # Kelly"), pero además se reduce proporcional a la confianza del
+            # análisis (0-100): con MIN_CONFIDENCE_SCORE=35 como piso para
+            # siquiera considerar la apuesta, un análisis con confianza 40
+            # apuesta bastante menos que uno con confianza 90, en vez de que
+            # ambos usen la misma fracción sólo por pasar el umbral mínimo.
+            kelly_fraccion_ajustada = self.config_riesgo.kelly_fraction * (confidence / 100)
             evaluacion = evaluar_apuesta(
                 probabilidad_modelo=probabilidad,
                 cuota_decimal=float(precio.precio_back),
                 bankroll=bankroll,
-                kelly_fraccion=self.config_riesgo.kelly_fraction,
+                kelly_fraccion=kelly_fraccion_ajustada,
                 min_edge=self.config_riesgo.min_edge_threshold,
                 stake_maximo=self.config_riesgo.max_stake_per_bet,
             )
@@ -269,8 +276,7 @@ class OddsScanner:
 
         operaciones_creadas = []
         for precio, evaluacion in candidatos.values():
-            familia = self._familia_mercado(precio.mercado)
-            sin_calibracion = familia == "OVER_UNDER" and precio.mercado not in self.mercados_calibrados
+            sin_calibracion = precio.mercado not in self.mercados_calibrados
 
             es_value_bet = (
                 evaluacion.es_apuesta_de_valor
@@ -295,7 +301,7 @@ class OddsScanner:
                 # calculada sea confiable), no que falte edge.
                 recomendacion = AnalisisPartido.Recomendacion.ANOMALIA
                 motivo = (
-                    "⚠️ Mercado no validado: sin calibración histórica todavía para esta línea -- "
+                    "⚠️ Mercado no validado: sin calibración histórica todavía para este mercado -- "
                     "no se recomienda hasta tener evidencia real (manage.py backtest_modelo "
                     "--guardar-calibracion) de que la probabilidad calculada es confiable."
                 )
@@ -316,11 +322,10 @@ class OddsScanner:
                 recomendacion = AnalisisPartido.Recomendacion.NO_BET
                 motivo = "Edge inferior al umbral mínimo configurado."
 
-            # Para el Value Score: 1X2 no tiene un mecanismo de calibración
-            # activo todavía (ver sección "Confianza dinámica" pendiente),
-            # así que no se lo penaliza por eso; Over/Under sí depende de
-            # tener una curva medida (mismo criterio que sin_calibracion).
-            calibrado = familia != "OVER_UNDER" or precio.mercado in self.mercados_calibrados
+            # Para el Value Score: todo mercado (1X2 u Over/Under) depende de
+            # tener una curva de calibración medida contra resultados reales
+            # (mismo criterio que sin_calibracion).
+            calibrado = precio.mercado in self.mercados_calibrados
 
             self._registrar_analisis(
                 partido=partido,
