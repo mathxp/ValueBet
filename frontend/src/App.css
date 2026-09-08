@@ -228,6 +228,16 @@
   object-fit: contain;
 }
 
+.equipos-page__th-ordenable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.equipos-page__th-ordenable:hover {
+  color: var(--brand-blue);
+}
+
 .config-list {
   display: flex;
   flex-direction: column;

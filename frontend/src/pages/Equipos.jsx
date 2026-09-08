@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Card from "../components/Card";
 import InfoBox from "../components/InfoBox";
@@ -88,11 +88,42 @@ export default function Equipos() {
   );
 }
 
+const COLUMNAS_FOTMOB = [
+  { key: "possession_percentage_team", label: "Posesión", formato: (v) => `${v.toFixed(1)}%` },
+  { key: "big_chance_team", label: "Grandes ocasiones", formato: (v) => v },
+  { key: "big_chance_missed_team", label: "... falladas", formato: (v) => v },
+  { key: "ontarget_scoring_att_team", label: "Tiros al arco", formato: (v) => `${v.toFixed(1)}/partido` },
+  { key: "corner_taken_team", label: "Corners", formato: (v) => v },
+];
+
 function EstadisticasFotMob({ ratings }) {
+  const [ordenPor, setOrdenPor] = useState("possession_percentage_team");
+  const [ordenDesc, setOrdenDesc] = useState(true);
+
   const filas = ratings.filter((r) => r.equipo.metadata?.fotmob);
+
+  const filasOrdenadas = useMemo(() => {
+    const copia = [...filas];
+    copia.sort((a, b) => {
+      const valorA = a.equipo.metadata.fotmob[ordenPor] ?? 0;
+      const valorB = b.equipo.metadata.fotmob[ordenPor] ?? 0;
+      return ordenDesc ? valorB - valorA : valorA - valorB;
+    });
+    return copia;
+  }, [filas, ordenPor, ordenDesc]);
+
   if (filas.length === 0) return null;
 
   const temporada = filas[0].equipo.metadata.fotmob.temporada;
+
+  function ordenarPor(campo) {
+    if (campo === ordenPor) {
+      setOrdenDesc((desc) => !desc);
+    } else {
+      setOrdenPor(campo);
+      setOrdenDesc(true);
+    }
+  }
 
   return (
     <>
@@ -103,7 +134,8 @@ function EstadisticasFotMob({ ratings }) {
           <strong>todavía no se usa en el cálculo de ataque/defensa ni en las probabilidades</strong>{" "}
           de arriba: son promedios de temporada sin calibrar contra los resultados reales de esta
           liga, y el resto del modelo sí pasó por ese proceso antes de influir en una
-          recomendación.
+          recomendación. Hacé clic en una columna para ordenar por esa estadística — por ejemplo,
+          para ver qué equipos generan más corners o más ocasiones claras.
         </p>
       </InfoBox>
 
@@ -113,15 +145,20 @@ function EstadisticasFotMob({ ratings }) {
             <thead>
               <tr>
                 <th>Equipo</th>
-                <th>Posesión</th>
-                <th>Grandes ocasiones</th>
-                <th>... falladas</th>
-                <th>Tiros al arco</th>
-                <th>Corners</th>
+                {COLUMNAS_FOTMOB.map((col) => (
+                  <th
+                    key={col.key}
+                    onClick={() => ordenarPor(col.key)}
+                    className="equipos-page__th-ordenable"
+                  >
+                    {col.label}
+                    {ordenPor === col.key && (ordenDesc ? " ▼" : " ▲")}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filas.map((r) => {
+              {filasOrdenadas.map((r) => {
                 const f = r.equipo.metadata.fotmob;
                 return (
                   <tr key={r.equipo.id}>
@@ -133,11 +170,11 @@ function EstadisticasFotMob({ ratings }) {
                         {r.equipo.nombre}
                       </div>
                     </td>
-                    <td>{f.possession_percentage_team?.toFixed(1)}%</td>
-                    <td>{f.big_chance_team}</td>
-                    <td>{f.big_chance_missed_team}</td>
-                    <td>{f.ontarget_scoring_att_team?.toFixed(1)}/partido</td>
-                    <td>{f.corner_taken_team}</td>
+                    {COLUMNAS_FOTMOB.map((col) => (
+                      <td key={col.key}>
+                        {f[col.key] != null ? col.formato(f[col.key]) : "—"}
+                      </td>
+                    ))}
                   </tr>
                 );
               })}
