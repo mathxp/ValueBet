@@ -92,6 +92,14 @@ class ApiFootballClient:
         """El plan gratuito solo acepta temporadas ya cerradas, no la actual."""
         return self._get("teams", {"league": league_id, "season": season}).get("response", [])
 
+    def get_team_by_id(self, team_id: int) -> dict[str, Any] | None:
+        response = self._get("teams", {"id": team_id}).get("response", [])
+        return response[0] if response else None
+
+    def search_teams(self, name: str) -> list[dict[str, Any]]:
+        """Búsqueda por nombre -- para equipos sin api_football_id confirmado todavía."""
+        return self._get("teams", {"search": name}).get("response", [])
+
     def get_odds(self, fixture_id: int) -> list[dict[str, Any]]:
         """Cuotas de referencia (útil como control cruzado, no como fuente de valor)."""
         return self._get("odds", {"fixture": fixture_id}).get("response", [])

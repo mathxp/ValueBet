@@ -1,13 +1,12 @@
 import { formatDateTime, formatPercent } from "../utils/format";
+import TeamCrest from "./TeamCrest";
 import "./MatchCard.css";
 
 function FilaEquipo({ equipo, xg }) {
   return (
     <div className="match-card__row">
       <div className="match-card__team">
-        {equipo.logo_url && (
-          <img src={equipo.logo_url} alt="" className="match-card__crest" loading="lazy" />
-        )}
+        <TeamCrest equipo={equipo} className="match-card__crest" />
         <span className="match-card__team-name">{equipo.nombre}</span>
       </div>
       {xg !== null ? (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import Card from "../components/Card";
 import InfoBox from "../components/InfoBox";
+import TeamCrest from "../components/TeamCrest";
 import { getEquipoRatings } from "../services/api";
 
 export default function Equipos() {
@@ -64,9 +65,7 @@ export default function Equipos() {
                     <tr key={r.equipo.id}>
                       <td>
                         <div className="equipos-page__nombre">
-                          {r.equipo.logo_url && (
-                            <img src={r.equipo.logo_url} alt="" className="equipos-page__logo" />
-                          )}
+                          <TeamCrest equipo={r.equipo} className="equipos-page__logo" />
                           {r.equipo.nombre}
                         </div>
                       </td>
