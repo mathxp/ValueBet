@@ -82,6 +82,69 @@ export default function Equipos() {
           )}
         </Card>
       )}
+
+      {!loading && !error && <EstadisticasFotMob ratings={ratings} />}
     </div>
+  );
+}
+
+function EstadisticasFotMob({ ratings }) {
+  const filas = ratings.filter((r) => r.equipo.metadata?.fotmob);
+  if (filas.length === 0) return null;
+
+  const temporada = filas[0].equipo.metadata.fotmob.temporada;
+
+  return (
+    <>
+      <InfoBox title={`Estadísticas complementarias (FotMob, temporada ${temporada})`}>
+        <p>
+          Posesión, grandes ocasiones y tiros al arco promedio de la temporada, vía{" "}
+          <strong>FotMob</strong>. Es información de contexto para vos —{" "}
+          <strong>todavía no se usa en el cálculo de ataque/defensa ni en las probabilidades</strong>{" "}
+          de arriba: son promedios de temporada sin calibrar contra los resultados reales de esta
+          liga, y el resto del modelo sí pasó por ese proceso antes de influir en una
+          recomendación.
+        </p>
+      </InfoBox>
+
+      <Card>
+        <div className="operations-table__scroll">
+          <table className="operations-table">
+            <thead>
+              <tr>
+                <th>Equipo</th>
+                <th>Posesión</th>
+                <th>Grandes ocasiones</th>
+                <th>... falladas</th>
+                <th>Tiros al arco</th>
+                <th>Corners</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((r) => {
+                const f = r.equipo.metadata.fotmob;
+                return (
+                  <tr key={r.equipo.id}>
+                    <td>
+                      <div className="equipos-page__nombre">
+                        {r.equipo.logo_url && (
+                          <img src={r.equipo.logo_url} alt="" className="equipos-page__logo" />
+                        )}
+                        {r.equipo.nombre}
+                      </div>
+                    </td>
+                    <td>{f.possession_percentage_team?.toFixed(1)}%</td>
+                    <td>{f.big_chance_team}</td>
+                    <td>{f.big_chance_missed_team}</td>
+                    <td>{f.ontarget_scoring_att_team?.toFixed(1)}/partido</td>
+                    <td>{f.corner_taken_team}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
   );
 }

@@ -1,0 +1,8 @@
+# Dependencia opcional para ml_models/pipelines/fotmob_stats.py (comando
+# `actualizar_stats_fotmob`) -- NO se instala junto con requirements.txt
+# porque lanza un Chrome real (via nodriver) para esquivar el anti-bot de
+# FotMob: pesado, requiere Chrome instalado, y no se usa en la tarea
+# automática por hora (run_pipeline_once), solo a mano y ocasionalmente.
+#
+# Instalar con: pip install -r requirements-scraping.txt
+lanusstats==2.1.11

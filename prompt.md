@@ -315,10 +315,20 @@ no repetir la investigación si se vuelve a plantear la misma pregunta:
   `/fixtures?date=X` solo acepta fechas dentro de ±1 día de hoy. La solución implementada es
   recorrer día a día (ayer/hoy/mañana) pidiendo por fecha sin liga ni temporada, filtrando la liga
   chilena en el cliente.
-- **Se evaluó y se descartó (por ahora) usar LanusStats** (librería de scraping de
-  SofaScore/FotMob que sí tiene xG real para esta liga) por el riesgo de scraping no oficial
-  (rompe sin aviso, zona gris de ToS) y porque conseguir el dataset histórico real (Excel 2024/2025
-  + investigación manual) resultó más valioso y sin ese riesgo.
+- **LanusStats (https://github.com/federicorabanos/LanusStats, MIT) se integró, pero NO para xG.**
+  Se verificó en vivo (no solo la documentación) que ni FBref ni FotMob calculan un modelo de xG
+  para la Primera División de Chile: FBref solo expone conteo de tiros en esta liga, y el catálogo
+  real de estadísticas de FotMob para esta liga (`leagueseasondeepstats`) no incluye
+  `expected_goals_team` pese a que la librería lo ofrezca como parámetro válido en general. Lo que
+  sí se usa: posesión/grandes ocasiones/tiros al arco/corners de FotMob, guardados en
+  `Equipo.metadata["fotmob"]` (ver `ml_models/pipelines/fotmob_stats.py`) y mostrados en la pestaña
+  Equipos como contexto informativo — **deliberadamente sin mezclarlos en `calcular_ratings()` /
+  `proyectar_xg()`**, porque son promedios de temporada sin calibrar contra resultados reales de
+  esta liga (a diferencia del resto del modelo, que sí pasó por el proceso de auditoría/calibración
+  de la sección 10 antes de influir en una recomendación). Requiere el paquete opcional
+  `lanusstats` (`requirements-scraping.txt`, no en `requirements.txt`) porque lanza un Chrome real
+  (`nodriver`) para esquivar el anti-bot de FotMob — por eso se corre a mano con
+  `manage.py actualizar_stats_fotmob`, nunca desde la tarea automática por hora.
 - **No hay modelo de Machine Learning entrenado** (a pesar de que XGBoost/scikit-learn están en
   `requirements.txt`) — con ~650 partidos y pocas features por partido, un modelo de Poisson
   regularizado es más robusto que entrenar un clasificador que probablemente sobreajuste. El hook

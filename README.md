@@ -212,6 +212,26 @@ prior neutro (45/27/28%). No hay atajo para esto — hay que dejar correr el bot
 en modo *paper trading* varias semanas para que el rating tenga base real antes
 de confiar en las señales que genere.
 
+### Estadísticas complementarias de FotMob (posesión, grandes ocasiones, corners)
+
+Se probó la librería [LanusStats](https://github.com/federicorabanos/LanusStats) (MIT) para traer
+xG real de FBref/FotMob — se confirmó **en vivo** que ninguna de las dos fuentes calcula xG para
+esta liga (FBref solo tiene conteo de tiros; el catálogo real de FotMob no incluye
+`expected_goals_team` pese a que la librería lo acepte como parámetro). Sí trae otras estadísticas
+útiles como contexto (posesión, grandes ocasiones, tiros al arco, corners), que se muestran en la
+pestaña **Equipos** pero **no se usan en el cálculo de ataque/defensa ni en las probabilidades**.
+
+Es un paquete opcional (`requirements-scraping.txt`, no en `requirements.txt`) porque lanza un
+Chrome real para esquivar el anti-bot de FotMob:
+
+```bash
+pip install -r requirements-scraping.txt
+python manage.py actualizar_stats_fotmob --temporada 2025
+```
+
+Se corre a mano, de vez en cuando (las estadísticas de temporada no cambian partido a partido) —
+no está enganchado a la tarea automática por hora.
+
 ## Investigación manual con Claude/Gemini (sin API de pago)
 
 Si no tenés una API key de pago de Anthropic/Google (la suscripción de chat de
