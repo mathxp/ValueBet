@@ -12,7 +12,9 @@ name: Pipeline horario
 
 on:
   schedule:
-    - cron: "7 * * * *"   # minuto 7 de cada hora (UTC); evita el pico del minuto 0
+    # Respaldo cada 6 h: el disparador principal es cron-job.org -> /api/cron/pipeline/
+    # (los horarios de GitHub Actions se saltan seguido en repos con poca actividad).
+    - cron: "17 */6 * * *"
   workflow_dispatch: {}    # permite correrlo a mano desde la pestaña Actions
 
 concurrency:

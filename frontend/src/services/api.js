@@ -107,3 +107,5 @@ export default api;
 export const getTablas = () => api.get("tablas/").then((r) => r.data);
 
 export const getPronosticos = () => api.get("pronosticos/").then((r) => r.data);
+
+export const getHistorialPronosticos = () => api.get("pronosticos/historial/").then((r) => r.data);

@@ -1,0 +1,30 @@
+.chip-comp {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.chip-comp--liga {
+  color: var(--brand-blue);
+  background: color-mix(in srgb, var(--brand-blue) 14%, transparent);
+  border-color: color-mix(in srgb, var(--brand-blue) 35%, transparent);
+}
+
+.chip-comp--copa-chile {
+  color: var(--brand-gold);
+  background: color-mix(in srgb, var(--brand-gold) 14%, transparent);
+  border-color: color-mix(in srgb, var(--brand-gold) 40%, transparent);
+}
+
+.chip-comp--copa-liga,
+.chip-comp--otra {
+  color: var(--brand-cyan);
+  background: color-mix(in srgb, var(--brand-cyan) 14%, transparent);
+  border-color: color-mix(in srgb, var(--brand-cyan) 35%, transparent);
+}

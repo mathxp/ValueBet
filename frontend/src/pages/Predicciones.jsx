@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Card from "../components/Card";
+import ChipCompeticion from "../components/ChipCompeticion";
 import CombinadasList from "../components/CombinadasList";
+import HistorialAciertos from "../components/HistorialAciertos";
 import MejorApuestaCard from "../components/MejorApuestaCard";
 import PartidoCell from "../components/PartidoCell";
 import PronosticoCard from "../components/PronosticoCard";
@@ -29,7 +31,16 @@ const MERCADOS_VIGENTES = new Set([
 // cincuenta y pico que técnicamente pasa el filtro general.
 const PROBABILIDAD_MINIMA_DESTACADA = 0.6;
 
+function rangoDias(partidos) {
+  const fmt = (d) => d.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" });
+  const fechas = partidos.map((x) => new Date(x.partido.fecha_hora)).sort((a, b) => a - b);
+  const ini = fmt(fechas[0]);
+  const fin = fmt(fechas[fechas.length - 1]);
+  return ini === fin ? ini : `${ini} – ${fin}`;
+}
+
 export default function Predicciones() {
+  const [filtro, setFiltro] = useState("Todas");
   const [pronosticos, setPronosticos] = useState([]);
   const [loadingPron, setLoadingPron] = useState(true);
   const [errorPron, setErrorPron] = useState(null);
@@ -96,34 +107,74 @@ export default function Predicciones() {
       .sort((a, b) => b.probabilidad_seleccion - a.probabilidad_seleccion);
   }, [analisisVigente, mejorApuesta]);
 
-  // Los 3 pronósticos más probables de la fecha ("X gana o empata").
-  const masSeguros = useMemo(
-    () =>
-      [...pronosticos]
-        .sort((a, b) => b.doble_oportunidad.probabilidad - a.doble_oportunidad.probabilidad)
-        .slice(0, 3),
+  const competiciones = useMemo(
+    () => ["Todas", ...new Set(pronosticos.map((x) => x.competicion))],
     [pronosticos]
   );
+  const visibles = useMemo(
+    () => (filtro === "Todas" ? pronosticos : pronosticos.filter((x) => x.competicion === filtro)),
+    [pronosticos, filtro]
+  );
+
+  // Agrupa por competición + fecha/ronda ("Fecha 29", "Semifinal · ida"), en orden cronológico.
+  const grupos = useMemo(() => {
+    const mapa = new Map();
+    for (const x of visibles) {
+      const clave = `${x.competicion}|${x.etiqueta_fecha}`;
+      if (!mapa.has(clave)) mapa.set(clave, { competicion: x.competicion, etiqueta: x.etiqueta_fecha, partidos: [] });
+      mapa.get(clave).partidos.push(x);
+    }
+    return [...mapa.values()].sort(
+      (a, b) => new Date(a.partidos[0].partido.fecha_hora) - new Date(b.partidos[0].partido.fecha_hora)
+    );
+  }, [visibles]);
+
+  // Los 3 pronósticos más probables de los próximos 7 días ("X gana o empata").
+  const masSeguros = useMemo(() => {
+    const limite = Date.now() + 7 * 24 * 3600 * 1000;
+    return visibles
+      .filter((x) => new Date(x.partido.fecha_hora).getTime() <= limite)
+      .sort((a, b) => b.doble_oportunidad.probabilidad - a.doble_oportunidad.probabilidad)
+      .slice(0, 3);
+  }, [visibles]);
 
   return (
     <div className="predicciones-page">
       <header className="page-header">
         <h1>Predicciones</h1>
         <p className="page-header__subtitle">
-          Lo más probable de cada partido de la próxima fecha, según el modelo.
+          Lo más probable de cada partido de las próximas fechas: liga y copas.
         </p>
       </header>
+
+      {competiciones.length > 2 && (
+        <div className="filtro-comp" role="tablist">
+          {competiciones.map((c) => (
+            <button
+              key={c}
+              role="tab"
+              aria-selected={filtro === c}
+              className={`filtro-comp__btn ${filtro === c ? "filtro-comp__btn--activo" : ""}`}
+              onClick={() => setFiltro(c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loadingPron && <p className="page-status">Cargando...</p>}
       {errorPron && <p className="page-status page-status--error">Error: {errorPron}</p>}
 
       {masSeguros.length > 0 && (
         <section>
-          <h2 className="seccion-titulo">🔒 Los más seguros de la fecha</h2>
+          <h2 className="seccion-titulo">🔒 Los más seguros de esta semana</h2>
           <div className="pron-top">
             {masSeguros.map((x, i) => (
               <div key={x.partido.id} className="pron-top__item">
-                <span className="pron-top__rank">#{i + 1} más probable</span>
+                <span className="pron-top__rank">
+                  #{i + 1} · {x.competicion === "Liga de Primera" ? x.etiqueta_fecha : `${x.competicion} · ${x.etiqueta_fecha}`}
+                </span>
                 <div className="pron-top__partido">
                   <TeamCrest equipo={x.partido.equipo_local} />
                   <span>{x.partido.equipo_local.nombre}</span>
@@ -142,16 +193,26 @@ export default function Predicciones() {
       {!loadingRecom && mejorApuesta && <MejorApuestaCard analisis={mejorApuesta} />}
 
       {!loadingPron && !errorPron && (
-        <section>
-          <h2 className="seccion-titulo">Todos los partidos</h2>
-          {pronosticos.length === 0 ? (
+        <section className="pron-fechas">
+          {grupos.length === 0 ? (
             <p className="page-status">No hay partidos próximos con pronóstico todavía.</p>
           ) : (
-            <div className="pron-grid">
-              {pronosticos.map((x) => (
-                <PronosticoCard key={x.partido.id} pronostico={x} />
-              ))}
-            </div>
+            grupos.map((g) => (
+              <div key={`${g.competicion}|${g.etiqueta}`} className="pron-fecha">
+                <header className="pron-fecha__cabecera">
+                  <ChipCompeticion nombre={g.competicion} />
+                  <h2 className="pron-fecha__titulo">{g.etiqueta}</h2>
+                  <span className="pron-fecha__rango">
+                    {rangoDias(g.partidos)} · {g.partidos.length} {g.partidos.length === 1 ? "partido" : "partidos"}
+                  </span>
+                </header>
+                <div className="pron-grid">
+                  {g.partidos.map((x) => (
+                    <PronosticoCard key={x.partido.id} pronostico={x} />
+                  ))}
+                </div>
+              </div>
+            ))
           )}
           <p className="pron-nota">
             Probabilidades calibradas con los resultados reales de temporadas anteriores. Son
@@ -159,6 +220,8 @@ export default function Predicciones() {
           </p>
         </section>
       )}
+
+      <HistorialAciertos />
 
       {!loadingRecom && otrasRecomendaciones.length > 0 && (
         <Card title="Apuestas con valor (cuota mejor que la probabilidad real)">

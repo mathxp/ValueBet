@@ -701,3 +701,48 @@ class HistorialPronosticosView(APIView):
 
         temporada = str(timezone.localdate().year)
         return Response({"fechas": historial_por_fecha(), "temporada": {"anio": temporada, **resumen_temporada(temporada)}})
+
+
+# --- Disparador externo del pipeline (cron-job.org) ----------------------------
+_pipeline_lock = __import__("threading").Lock()
+_pipeline_estado: dict = {"corriendo": False, "ultimo_inicio": None, "ultimo_fin": None, "ultimo_error": ""}
+
+
+class CronPipelineView(APIView):
+    """
+    GET/POST /api/cron/pipeline/: corre `run_pipeline_once` en un hilo aparte
+    y responde al tiro (202). Pensado para cron-job.org cada hora: los
+    horarios de GitHub Actions no son confiables en repos con poca actividad.
+    Protegido igual que toda la API: exige el header X-Proxy-Secret
+    (core/middleware.py). Si ya hay una corrida en curso, no lanza otra.
+    """
+
+    def get(self, request):
+        return self._disparar()
+
+    def post(self, request):
+        return self._disparar()
+
+    def _disparar(self):
+        import threading
+
+        from django.core.management import call_command
+        from django.db import connection
+        from django.utils import timezone
+
+        if not _pipeline_lock.acquire(blocking=False):
+            return Response({"estado": "ya_corriendo", **_pipeline_estado}, status=409)
+
+        def correr():
+            _pipeline_estado.update(corriendo=True, ultimo_inicio=timezone.now(), ultimo_error="")
+            try:
+                call_command("run_pipeline_once")
+            except Exception as exc:  # noqa: BLE001
+                _pipeline_estado["ultimo_error"] = str(exc)[:300]
+            finally:
+                _pipeline_estado.update(corriendo=False, ultimo_fin=timezone.now())
+                connection.close()
+                _pipeline_lock.release()
+
+        threading.Thread(target=correr, daemon=True).start()
+        return Response({"estado": "iniciado"}, status=202)

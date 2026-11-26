@@ -7,7 +7,7 @@ import PartidoCell from "../components/PartidoCell";
 import PnlLineChart from "../components/PnlLineChart";
 import StatusBadge from "../components/StatusBadge";
 import TeamCrest from "../components/TeamCrest";
-import { getBacktest, getOperaciones, getPronosticos, getResumenOperaciones } from "../services/api";
+import { getBacktest, getHistorialPronosticos, getOperaciones, getPronosticos, getResumenOperaciones } from "../services/api";
 import { etiquetaPronostico, formatCurrency, formatOdds, formatPercent, formatSeleccion } from "../utils/format";
 import "./Dashboard.css";
 
@@ -93,7 +93,7 @@ function MejoresDeLaFecha({ pronosticos }) {
   );
 }
 
-function Confiabilidad({ backtest }) {
+function Confiabilidad({ backtest, temporada }) {
   const m = backtest?.mercados?.find((x) => x.mercado === "1X2");
   if (!m) return null;
   return (
@@ -112,6 +112,13 @@ function Confiabilidad({ backtest }) {
           <span className="dash-conf__kpi-label">si apostaras siempre al local</span>
         </div>
       </div>
+      {temporada?.partidos > 0 && (
+        <div className="dash-conf__temporada">
+          <span>Esta temporada ({temporada.anio})</span>
+          <strong>{formatPercent(temporada.acierto_seguro)}</strong> en el pronóstico más seguro ·{" "}
+          <strong>{formatPercent(temporada.acierto_1x2)}</strong> en el resultado · {temporada.partidos} partidos
+        </div>
+      )}
       <p className="dash-conf__sub">Cuando el modelo dice…</p>
       <ul className="dash-conf__buckets">
         {m.buckets.map((b) => (
@@ -170,6 +177,7 @@ export default function Dashboard() {
   const [resueltas, setResueltas] = useState([]);
   const [pronosticos, setPronosticos] = useState([]);
   const [backtest, setBacktest] = useState(null);
+  const [temporada, setTemporada] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -191,6 +199,9 @@ export default function Dashboard() {
     cargar();
     getPronosticos().then(setPronosticos).catch(() => setPronosticos([]));
     getBacktest().then(setBacktest).catch(() => setBacktest(null));
+    getHistorialPronosticos()
+      .then((d) => setTemporada(d.temporada))
+      .catch(() => setTemporada(null));
   }, []);
 
   const pnlPoints = useMemo(() => {
@@ -235,7 +246,7 @@ export default function Dashboard() {
             <ListaApuestas operaciones={resueltas.slice(0, 8)} onCambiar={cargar} mostrarPnl />
           )}
         </Card>
-        <Confiabilidad backtest={backtest} />
+        <Confiabilidad backtest={backtest} temporada={temporada} />
       </div>
     </div>
   );

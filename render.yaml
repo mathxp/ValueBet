@@ -33,3 +33,8 @@ services:
         sync: false
       - key: API_FOOTBALL_KEY
         sync: false
+      # Opcionales: avisos por Telegram (el pipeline corre en Render vía /api/cron/pipeline/).
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
