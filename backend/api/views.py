@@ -691,11 +691,10 @@ class PronosticosView(APIView):
             if goles is None:
                 continue
 
-            p1x2 = {s: predictor.predecir_probabilidad_1x2(partido, s) for s in ("LOCAL", "EMPATE", "VISITANTE")}
-            if None in p1x2.values():
+            combinadas = predictor.probabilidades_1x2_combinadas(partido)
+            if combinadas is None:
                 continue
-            total = sum(p1x2.values()) or 1.0
-            p1x2 = {s: p / total for s, p in p1x2.items()}  # calibradas por separado -> renormalizar
+            p1x2, usa_mercado = combinadas
             dobles = {"1X": p1x2["LOCAL"] + p1x2["EMPATE"], "X2": p1x2["EMPATE"] + p1x2["VISITANTE"], "12": p1x2["LOCAL"] + p1x2["VISITANTE"]}
             p_over = predictor.predecir_probabilidad_over(partido, 2.5)
 
@@ -708,6 +707,7 @@ class PronosticosView(APIView):
                     "xg_local": round(goles[0], 2),
                     "xg_visitante": round(goles[1], 2),
                     "probabilidades": {k: round(v, 4) for k, v in p1x2.items()},
+                    "fuente": "modelo+mercado" if usa_mercado else "modelo",
                     "pronostico": {"mercado": "1X2", "seleccion": ganador, "probabilidad": round(p1x2[ganador], 4)},
                     "doble_oportunidad": {"mercado": "DOBLE_OPORTUNIDAD", "seleccion": doble, "probabilidad": round(dobles[doble], 4)},
                     "goles": (

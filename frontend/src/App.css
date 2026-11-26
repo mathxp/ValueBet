@@ -27,9 +27,9 @@
 }
 
 .app-sidebar__brand-logo {
-  height: 30px;
+  height: 34px;
   width: auto;
-  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--brand-navy) 25%, transparent));
+  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--brand-accent) 45%, transparent));
 }
 
 .app-sidebar__brand-text {
@@ -45,6 +45,10 @@
   font-size: 17px;
   letter-spacing: -0.01em;
   color: var(--text-primary);
+  background: linear-gradient(90deg, var(--text-primary) 30%, color-mix(in srgb, var(--brand-accent) 70%, var(--text-primary)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .app-sidebar__brand-tag {
@@ -88,7 +92,7 @@
 
 .app-sidebar__nav a.active {
   color: #fff;
-  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-strong));
+  background: var(--brand-gradient);
   box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--brand-blue) 55%, transparent);
 }
 

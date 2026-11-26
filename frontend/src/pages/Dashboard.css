@@ -1,0 +1,71 @@
+.dashboard__stats--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bet-list__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.bet-list__item:last-child {
+  border-bottom: none;
+}
+
+.bet-list__pick {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bet-list__seleccion {
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bet-list__cuota {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.bet-list__pnl,
+.bet-list__stake {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 64px;
+}
+
+.bet-list__stake {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 600px) {
+  .dashboard__stats--3 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bet-list__item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 8px;
+  }
+
+  .bet-list__item > :nth-child(4),
+  .bet-list__item > :nth-child(5) {
+    grid-column: span 1;
+  }
+}

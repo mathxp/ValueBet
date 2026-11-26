@@ -135,3 +135,45 @@ class DobleOportunidadTests(TestCase):
     def test_seleccion_invalida_retorna_none(self):
         partido = self._crear_partido({"xg_local": 1.5, "xg_visitante": 1.0})
         self.assertIsNone(MatchPredictor().predecir_probabilidad_doble_oportunidad(partido, "ZZ"))
+
+
+class ProbabilidadesCombinadasTests(TestCase):
+    def setUp(self):
+        from db_models.models import Equipo
+
+        self.local = Equipo.objects.create(nombre="A", api_football_id=901)
+        self.visita = Equipo.objects.create(nombre="B", api_football_id=902)
+        self.partido = Partido.objects.create(
+            equipo_local=self.local,
+            equipo_visitante=self.visita,
+            fecha_hora=timezone.now(),
+            metricas_avanzadas={"xg_local": 1.5, "xg_visitante": 1.0},
+        )
+
+    def test_sin_cuotas_usa_solo_modelo(self):
+        probs, usa_mercado = MatchPredictor().probabilidades_1x2_combinadas(self.partido)
+        self.assertFalse(usa_mercado)
+        self.assertAlmostEqual(sum(probs.values()), 1.0, places=6)
+
+    def test_con_cuotas_mezcla_y_quita_margen(self):
+        from db_models.models import HistorialCuotas
+
+        for seleccion, cuota in (("LOCAL", "1.50"), ("EMPATE", "4.00"), ("VISITANTE", "6.00")):
+            HistorialCuotas.objects.create(
+                partido=self.partido, origen="Bet365", mercado="1X2", seleccion=seleccion, cuota_back=cuota
+            )
+        predictor = MatchPredictor()
+        solo_modelo, _ = predictor.probabilidades_1x2_combinadas(
+            Partido.objects.create(
+                equipo_local=self.local,
+                equipo_visitante=self.visita,
+                fecha_hora=timezone.now(),
+                metricas_avanzadas={"xg_local": 1.5, "xg_visitante": 1.0},
+            )
+        )
+        mercado = predictor.probabilidades_1x2_mercado(self.partido)
+        self.assertAlmostEqual(sum(mercado.values()), 1.0, places=6)
+
+        probs, usa_mercado = predictor.probabilidades_1x2_combinadas(self.partido)
+        self.assertTrue(usa_mercado)
+        self.assertAlmostEqual(probs["LOCAL"], 0.5 * solo_modelo["LOCAL"] + 0.5 * mercado["LOCAL"], places=6)

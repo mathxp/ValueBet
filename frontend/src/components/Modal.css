@@ -1,7 +1,7 @@
 .modal__overlay {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--brand-navy, #0a120a) 55%, transparent);
+  background: color-mix(in srgb, var(--brand-navy, #050814) 55%, transparent);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-start;

@@ -28,8 +28,20 @@ export default function PronosticoCard({ pronostico }) {
   return (
     <article className="pron-card">
       <header className="pron-card__fecha">
-        {fecha.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })} ·{" "}
-        {fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+        <span>
+          {fecha.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })} ·{" "}
+          {fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+        <span
+          className={`pron-card__fuente ${pronostico.fuente === "modelo+mercado" ? "pron-card__fuente--mercado" : ""}`}
+          title={
+            pronostico.fuente === "modelo+mercado"
+              ? "Mezcla 50/50 del modelo con las cuotas de las casas de apuestas"
+              : "Las cuotas se cargan ~24 h antes del partido; hasta entonces es solo el modelo"
+          }
+        >
+          {pronostico.fuente === "modelo+mercado" ? "Modelo + mercado" : "Modelo"}
+        </span>
       </header>
 
       <div className="pron-card__equipos">

@@ -136,6 +136,47 @@ class MatchPredictor:
             return None
         return self._calibrar("1X2", probabilidad_cruda)
 
+    # Peso del modelo al mezclarlo con la probabilidad implícita del mercado.
+    # Con las cuotas guardadas (17 partidos resueltos) modelo y mercado rindieron
+    # parecido (Brier 0.596 vs 0.619, mismo % de acierto), así que se usa la
+    # mezcla equitativa: es la opción más robusta cuando ninguna fuente domina.
+    PESO_MODELO_VS_MERCADO = 0.5
+
+    def probabilidades_1x2_mercado(self, partido: Partido) -> dict[str, float] | None:
+        """Probabilidad implícita 1X2 de las últimas cuotas capturadas, sin margen de la casa."""
+        from db_models.models import HistorialCuotas
+
+        cuotas = {}
+        for seleccion in ("LOCAL", "EMPATE", "VISITANTE"):
+            fila = (
+                HistorialCuotas.objects.filter(partido=partido, mercado="1X2", seleccion=seleccion)
+                .order_by("-capturado_en")
+                .values_list("cuota_back", flat=True)
+                .first()
+            )
+            if not fila or fila <= 1:
+                return None
+            cuotas[seleccion] = 1 / float(fila)
+        total = sum(cuotas.values())
+        return {s: v / total for s, v in cuotas.items()}
+
+    def probabilidades_1x2_combinadas(self, partido: Partido) -> tuple[dict[str, float], bool] | None:
+        """
+        1X2 calibrado del modelo, mezclado con el mercado cuando hay cuotas.
+        Retorna (probabilidades que suman 1, usó_mercado).
+        """
+        modelo = {s: self.predecir_probabilidad_1x2(partido, s) for s in ("LOCAL", "EMPATE", "VISITANTE")}
+        if None in modelo.values():
+            return None
+        total = sum(modelo.values()) or 1.0
+        modelo = {s: p / total for s, p in modelo.items()}
+
+        mercado = self.probabilidades_1x2_mercado(partido)
+        if mercado is None:
+            return modelo, False
+        w = self.PESO_MODELO_VS_MERCADO
+        return {s: w * modelo[s] + (1 - w) * mercado[s] for s in modelo}, True
+
     # Cada selección de Doble Oportunidad es la suma de dos resultados del
     # 1X2 mutuamente excluyentes -- por definición, no hace falta (ni tiene
     # sentido) estimarla por separado.

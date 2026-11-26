@@ -22,6 +22,10 @@
 }
 
 .pron-card__fecha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -91,7 +95,7 @@
 }
 
 .pron-barra__seg--visita {
-  background: #2563eb;
+  background: var(--brand-cyan);
 }
 
 .pron-barra__leyenda {
@@ -172,7 +176,7 @@
   padding: 16px;
   border-radius: var(--radius-lg);
   color: #fff;
-  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-strong));
+  background: var(--brand-gradient);
   box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--brand-blue) 70%, transparent);
   overflow: hidden;
 }
@@ -229,4 +233,18 @@
   margin: 0;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.pron-card__fuente {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.pron-card__fuente--mercado {
+  background: color-mix(in srgb, var(--brand-cyan) 16%, transparent);
+  color: var(--brand-cyan);
 }

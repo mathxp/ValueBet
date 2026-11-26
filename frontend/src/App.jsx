@@ -1,7 +1,7 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 
 import "./App.css";
-import logoMark from "./assets/logo-mark.png";
+import logoMark from "./assets/logo.svg";
 import ThemeToggle from "./components/ThemeToggle";
 import Configuracion from "./pages/Configuracion";
 import Dashboard from "./pages/Dashboard";
@@ -76,7 +76,7 @@ export default function App() {
           <img src={logoMark} alt="" className="app-sidebar__brand-logo" />
           <div className="app-sidebar__brand-text">
             <span className="app-sidebar__brand-name">ValueBet</span>
-            <span className="app-sidebar__brand-tag">Primera División Chile</span>
+            <span className="app-sidebar__brand-tag">Pronósticos · Fútbol chileno</span>
           </div>
         </div>
 

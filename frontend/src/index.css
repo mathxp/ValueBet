@@ -1,49 +1,48 @@
 :root {
   color-scheme: light;
 
-  /* Brand -- blanco y verde solamente (pedido explícito, sin negro). El
-     texto necesita igual un tono oscuro para contraste -- se usa un
-     verde-negro muy oscuro, no un gris neutro, para que incluso el texto
-     quede dentro de la misma familia de color. "--brand-blue"/"--brand-navy"
-     mantienen esos nombres (los usa medio proyecto) pero resuelven a verde --
-     cambiar el nombre de la variable en cada archivo hubiera sido mucho más
-     riesgoso que repintar el valor acá y dejar que se propague solo. Dos
-     verdes distintos a propósito: "--brand-blue" (interacción/foco/
-     gráficos/nav activo) es un verde más intenso tipo cancha; "--brand-green"
-     (PNL positivo, ganadas) es un verde más claro, para que no se confundan
-     siendo el mismo tono exacto. */
-  --brand-navy: #0a120a;
-  --brand-blue: #0f8a3e;
-  --brand-blue-strong: #0c6e32;
-  --brand-green: #16a34a;
-  --brand-green-strong: #15803d;
+  /* Paleta "Midnight Royal": índigo eléctrico -> violeta como color de marca,
+     cian como acento secundario y dorado para lo destacado (campeón, top).
+     "--brand-blue"/"--brand-navy"/"--brand-green" conservan sus nombres
+     históricos porque los usa todo el proyecto: --brand-blue = color
+     principal de interacción, --brand-green = positivo (ganancias). */
+  --brand-navy: #0b1224;
+  --brand-blue: #4f46e5;
+  --brand-blue-strong: #4338ca;
+  --brand-accent: #7c3aed;
+  --brand-cyan: #0891b2;
+  --brand-gold: #d99a1e;
+  --brand-green: #059669;
+  --brand-green-strong: #047857;
+  --brand-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
 
-  --surface-0: #f2f6f2;
+  --surface-0: #f4f6fb;
   --surface-1: #ffffff;
-  --surface-2: #eef3ee;
-  --page: #f2f6f2;
+  --surface-2: #eef1f8;
+  --page: #f4f6fb;
 
-  --text-primary: #0a120a;
-  --text-secondary: #42523f;
-  --text-muted: #85927f;
+  --text-primary: #0b1224;
+  --text-secondary: #475569;
+  --text-muted: #8a94a8;
 
-  --gridline: #e2ebe2;
-  --baseline: #c5d4c2;
-  --border: rgba(10, 18, 10, 0.09);
+  --gridline: #e3e8f2;
+  --baseline: #c7cfdd;
+  --border: rgba(15, 23, 42, 0.08);
 
   --series-1: var(--brand-blue);
   --series-1-strong: var(--brand-blue-strong);
 
-  --status-good: #16a34a;
+  --status-good: #059669;
   --status-warning: #d97706;
   --status-serious: #ea580c;
-  --status-critical: #dc2626;
-  --success-text: #15803d;
-  --negative: #dc2626;
+  --status-critical: #e11d48;
+  --success-text: #047857;
+  --negative: #e11d48;
 
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.05);
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 22%, transparent);
+  --shadow-md: 0 10px 28px -10px rgba(30, 27, 75, 0.22), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 25%, transparent);
+  --glow: 0 12px 32px -14px color-mix(in srgb, var(--brand-blue) 70%, transparent);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -53,40 +52,45 @@
   --font-display: "Manrope", "Inter", system-ui, sans-serif;
 }
 
-/* Oscuro: se activa con el botón de tema del sidebar (components/ThemeToggle.jsx);
-   por defecto sigue la preferencia del sistema (ver script en index.html). */
+/* Oscuro (predeterminado): se alterna con el botón de tema del menú
+   (components/ThemeToggle.jsx); ver script en index.html. */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --brand-navy: #0a0f0a;
-  --brand-blue: #19a94b;
-  --brand-blue-strong: #0f7a37;
-  --brand-green: #34d372;
-  --brand-green-strong: #4ade80;
+  --brand-navy: #050814;
+  --brand-blue: #6366f1;
+  --brand-blue-strong: #4f46e5;
+  --brand-accent: #8b5cf6;
+  --brand-cyan: #22d3ee;
+  --brand-gold: #f5b83d;
+  --brand-green: #34d399;
+  --brand-green-strong: #10b981;
+  --brand-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
 
-  --surface-0: #0a0d0a;
-  --surface-1: #12170f;
-  --surface-2: #1a221a;
-  --page: #070907;
+  --surface-0: #0a1020;
+  --surface-1: #0f172a;
+  --surface-2: #182238;
+  --page: #070b16;
 
-  --text-primary: #f6f8f6;
-  --text-secondary: #a9b5a9;
-  --text-muted: #6d796d;
+  --text-primary: #f1f5f9;
+  --text-secondary: #a5b4cc;
+  --text-muted: #64748b;
 
-  --gridline: #1f281f;
-  --baseline: #384a38;
-  --border: rgba(255, 255, 255, 0.09);
+  --gridline: #1c2640;
+  --baseline: #334155;
+  --border: rgba(148, 163, 184, 0.12);
 
-  --status-good: #34d372;
-  --status-warning: #f2a93c;
-  --status-serious: #f0855a;
-  --status-critical: #f16565;
-  --success-text: #4ade80;
-  --negative: #f16565;
+  --status-good: #34d399;
+  --status-warning: #fbbf24;
+  --status-serious: #fb923c;
+  --status-critical: #fb7185;
+  --success-text: #6ee7b7;
+  --negative: #fb7185;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 30%, transparent);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 14px 36px -12px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 40%, transparent);
+  --glow: 0 14px 40px -14px color-mix(in srgb, var(--brand-blue) 85%, transparent);
 }
 
 * {
@@ -96,11 +100,9 @@
 body {
   margin: 0;
   background: var(--page);
-  background-image: radial-gradient(
-    ellipse 1200px 480px at 50% -10%,
-    color-mix(in srgb, var(--brand-blue) 12%, transparent),
-    transparent 60%
-  );
+  background-image:
+    radial-gradient(ellipse 900px 420px at 15% -10%, color-mix(in srgb, var(--brand-blue) 16%, transparent), transparent 60%),
+    radial-gradient(ellipse 700px 380px at 95% 0%, color-mix(in srgb, var(--brand-accent) 12%, transparent), transparent 60%);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-sans);

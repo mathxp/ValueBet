@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="vb-bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="0.55" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#3B0764"/>
+    </linearGradient>
+    <linearGradient id="vb-shine" x1="32" y1="4" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vb-gold" x1="44" y1="8" x2="56" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDE68A"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <!-- escudo -->
+  <path d="M32 3.5 54.5 11v20.2c0 13.6-9.3 23.6-22.5 29.3C18.8 54.8 9.5 44.8 9.5 31.2V11L32 3.5Z" fill="url(#vb-bg)"/>
+  <path d="M32 3.5 54.5 11v20.2c0 1-.05 2-.15 3H9.65c-.1-1-.15-2-.15-3V11L32 3.5Z" fill="url(#vb-shine)"/>
+  <path d="M32 3.5 54.5 11v20.2c0 13.6-9.3 23.6-22.5 29.3C18.8 54.8 9.5 44.8 9.5 31.2V11L32 3.5Z" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="1.2"/>
+  <!-- V / gráfico en alza -->
+  <path d="M18.5 22.5 29 42.5l9.2-17.2 4.3 4.6 6.2-12.4" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- chispa dorada -->
+  <path d="M49.5 9.5c.7 2.9 1.9 4.1 4.8 4.8-2.9.7-4.1 1.9-4.8 4.8-.7-2.9-1.9-4.1-4.8-4.8 2.9-.7 4.1-1.9 4.8-4.8Z" fill="url(#vb-gold)"/>
+</svg>

@@ -20,7 +20,7 @@ import {
 } from "../utils/format";
 import "./OperationsTable.css";
 
-function AccionesOperacion({ operacion, onCambiar }) {
+export function AccionesOperacion({ operacion, onCambiar }) {
   const [enviando, setEnviando] = useState(false);
 
   const ejecutar = async (accion) => {
