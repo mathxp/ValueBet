@@ -25,6 +25,7 @@ openpyxl==3.1.5
 # --- Data ingestion / networking ---
 requests==2.32.3
 pywebpush==2.0.3  # notificaciones push (trading_engine/notificaciones.py)
+Pillow==12.3.0  # imágenes para redes (contenido/imagenes.py)
 beautifulsoup4==4.12.3
 
 # --- Utils ---

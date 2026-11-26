@@ -6,6 +6,7 @@ import AvisoDespertando from "./components/AvisoDespertando";
 import Notificaciones from "./components/Notificaciones";
 import ThemeToggle from "./components/ThemeToggle";
 import Configuracion from "./pages/Configuracion";
+import Contenido from "./pages/Contenido";
 import Dashboard from "./pages/Dashboard";
 import Equipos from "./pages/Equipos";
 import Predicciones from "./pages/Predicciones";
@@ -54,6 +55,15 @@ function IconoTablas() {
   );
 }
 
+function IconoContenido() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11l18-5v12L3 13v-2z" />
+      <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+    </svg>
+  );
+}
+
 function IconoConfiguracion() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -98,6 +108,10 @@ export default function App() {
             <IconoTablas />
             <span>Tablas</span>
           </NavLink>
+          <NavLink to="/contenido">
+            <IconoContenido />
+            <span>Contenido</span>
+          </NavLink>
           <NavLink to="/equipos">
             <IconoEquipos />
             <span>Equipos</span>
@@ -122,6 +136,7 @@ export default function App() {
             <Route path="/" element={<Predicciones />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/tablas" element={<Tablas />} />
+            <Route path="/contenido" element={<Contenido />} />
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/configuracion" element={<Configuracion />} />
           </Routes>

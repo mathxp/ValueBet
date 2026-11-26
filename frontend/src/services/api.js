@@ -117,3 +117,8 @@ export const getClavePush = () => api.get("push/").then((r) => r.data);
 export const suscribirPush = (suscripcion) => api.post("push/", suscripcion).then((r) => r.data);
 export const desuscribirPush = (endpoint) => api.delete("push/", { data: { endpoint } }).then((r) => r.data);
 export const enviarPushPrueba = () => api.post("push/prueba/").then((r) => r.data);
+
+// --- Contenido para redes -------------------------------------------------
+export const getContenido = (refrescar = false) =>
+  api.get("contenido/", { params: refrescar ? { refrescar: 1 } : {} }).then((r) => r.data);
+export const urlImagenContenido = (id) => `/api/contenido/imagen/?id=${encodeURIComponent(id)}`;

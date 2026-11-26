@@ -18,6 +18,8 @@ urlpatterns = [
     path("notificaciones/", views.NotificacionesView.as_view(), name="notificaciones"),
     path("push/", views.PushView.as_view(), name="push"),
     path("push/prueba/", views.PushPruebaView.as_view(), name="push-prueba"),
+    path("contenido/", views.ContenidoView.as_view(), name="contenido"),
+    path("contenido/imagen/", views.ContenidoImagenView.as_view(), name="contenido-imagen"),
     path("cron/pipeline/", views.CronPipelineView.as_view(), name="cron-pipeline"),
     path("pronosticos/historial/", views.HistorialPronosticosView.as_view(), name="pronosticos-historial"),
     path("", include(router.urls)),

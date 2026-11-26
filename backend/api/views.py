@@ -834,3 +834,48 @@ class PushPruebaView(APIView):
             "/",
         )
         return Response({"enviada": bool(n)})
+
+
+# --- Contenido para redes (X) --------------------------------------------------
+_cache_contenido: dict = {"t": 0.0, "piezas": []}
+_TTL_CONTENIDO = 600  # s
+
+
+def _piezas_contenido(forzar: bool = False) -> list[dict]:
+    import time
+
+    from contenido.generador import generar_contenido
+
+    if forzar or time.time() - _cache_contenido["t"] > _TTL_CONTENIDO or not _cache_contenido["piezas"]:
+        _cache_contenido["piezas"] = generar_contenido()
+        _cache_contenido["t"] = time.time()
+    return _cache_contenido["piezas"]
+
+
+class ContenidoView(APIView):
+    """GET: piezas listas para publicar en X (texto + si tiene imagen). ?refrescar=1 regenera."""
+
+    def get(self, request):
+        piezas = _piezas_contenido(forzar=request.query_params.get("refrescar") == "1")
+        return Response(
+            [{k: p[k] for k in ("id", "categoria", "titulo", "texto", "imagen")} for p in piezas]
+        )
+
+
+class ContenidoImagenView(APIView):
+    """GET ?id=<pieza>: imagen PNG 1200x675 de la pieza."""
+
+    def get(self, request):
+        from django.http import HttpResponse
+
+        from contenido.imagenes import render
+
+        pieza_id = request.query_params.get("id", "")
+        pieza = next((p for p in _piezas_contenido() if p["id"] == pieza_id), None)
+        if pieza is None or not pieza.get("imagen"):
+            return Response({"detail": "Contenido no encontrado (puede haber cambiado: recarga la lista)."}, status=404)
+        resp = HttpResponse(render(pieza["datos"]), content_type="image/png")
+        resp["Cache-Control"] = "private, max-age=300"
+        nombre = pieza_id.replace("|", "-").replace(" ", "_").replace("·", "")
+        resp["Content-Disposition"] = f'inline; filename="valuebet-{nombre}.png"'
+        return resp
