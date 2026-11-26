@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.CloudflareProxySecretMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -112,6 +113,9 @@ CORS_ALLOWED_ORIGINS = config(
     default="http://localhost:5173,http://127.0.0.1:5173",
     cast=Csv(),
 )
+
+# --- Cloudflare Tunnel / Pages proxy (ver core/middleware.py) --------------
+PROXY_SECRET = config("PROXY_SECRET", default="")
 
 # --- Django REST Framework ---------------------------------------------------
 REST_FRAMEWORK = {
