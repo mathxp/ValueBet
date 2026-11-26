@@ -1,18 +1,18 @@
-"""Protección del backend cuando se expone por Cloudflare Tunnel.
+"""Exige un secreto compartido para que solo la Pages Function de Cloudflare
+(frontend/functions/api/[[path]].js) pueda usar la API.
 
-Todo request que pasa por la red de Cloudflare trae el header ``Cf-Ray``.
-Esos requests solo se aceptan si además traen ``X-Proxy-Secret`` igual a
-``settings.PROXY_SECRET``, que únicamente conoce la Pages Function
-(frontend/functions/api/[[path]].js). Así la URL del tunnel no sirve para
-entrar directo a la API.
-
-El acceso local / por la red de la casa (sin Cf-Ray) no cambia.
+- En producción (Render) ``PROXY_SECRET_REQUIRED=True``: todo request debe
+  traer ``X-Proxy-Secret`` igual a ``settings.PROXY_SECRET``, salvo /healthz.
+- En local, solo se exige si el request pasó por Cloudflare (header ``Cf-Ray``,
+  p. ej. vía Cloudflare Tunnel); el acceso directo / red de la casa no cambia.
 """
 
 import hmac
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+
+HEALTH_PATH = "/healthz"
 
 
 class CloudflareProxySecretMiddleware:
@@ -20,7 +20,10 @@ class CloudflareProxySecretMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if "HTTP_CF_RAY" in request.META:
+        if request.path == HEALTH_PATH:
+            return HttpResponse("ok", content_type="text/plain")
+
+        if settings.PROXY_SECRET_REQUIRED or "HTTP_CF_RAY" in request.META:
             expected = settings.PROXY_SECRET
             received = request.META.get("HTTP_X_PROXY_SECRET", "")
             if not expected or not hmac.compare_digest(received, expected):

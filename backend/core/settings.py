@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "core.middleware.CloudflareProxySecretMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -68,9 +69,16 @@ WSGI_APPLICATION = "core.wsgi.application"
 ASGI_APPLICATION = "core.asgi.application"
 
 # --- Database -------------------------------------------------------------
-# Defaults match the "db" service in docker/docker-compose.yml.
-# Set DATABASE_ENGINE=sqlite for quick local development without Postgres.
-if config("DATABASE_ENGINE", default="postgresql") == "sqlite":
+# Prioridad: DATABASE_URL (Neon en producción, ej. postgresql://...?sslmode=require)
+# > DATABASE_ENGINE=sqlite (dev rápido) > Postgres local de docker/docker-compose.yml.
+DATABASE_URL = config("DATABASE_URL", default="")
+if DATABASE_URL:
+    import dj_database_url
+
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=60, conn_health_checks=True)
+    }
+elif config("DATABASE_ENGINE", default="postgresql") == "sqlite":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -105,6 +113,11 @@ USE_TZ = True
 
 # --- Static files -----------------------------------------------------------
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- CORS (React dev server) -------------------------------------------------
@@ -116,6 +129,16 @@ CORS_ALLOWED_ORIGINS = config(
 
 # --- Cloudflare Tunnel / Pages proxy (ver core/middleware.py) --------------
 PROXY_SECRET = config("PROXY_SECRET", default="")
+# En Render (producción) se exige el secreto en TODO request, no solo en los
+# que traen Cf-Ray: la API solo debe responder a la Pages Function.
+PROXY_SECRET_REQUIRED = config("PROXY_SECRET_REQUIRED", default=False, cast=bool)
+
+# --- Producción (Render) -------------------------------------------------------
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
 
 # --- Django REST Framework ---------------------------------------------------
 REST_FRAMEWORK = {

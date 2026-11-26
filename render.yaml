@@ -1,0 +1,35 @@
+# Blueprint de Render para la API Django de ValueBet.
+# La base de datos vive en Neon (DATABASE_URL) y el frontend en Cloudflare Pages,
+# que llega a esta API a través de frontend/functions/api/[[path]].js.
+services:
+  - type: web
+    name: valuebet-api
+    runtime: python
+    plan: free
+    region: ohio            # misma región que el proyecto de Neon (AWS us-east-2)
+    rootDir: backend
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate --noinput
+    startCommand: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.1
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        value: .onrender.com
+      - key: PROXY_SECRET_REQUIRED
+        value: "True"
+      # Valores secretos: Render los pide al crear el Blueprint.
+      - key: DATABASE_URL
+        sync: false
+      - key: PROXY_SECRET
+        sync: false
+      - key: API_FOOTBALL_KEY
+        sync: false
