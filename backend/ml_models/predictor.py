@@ -136,6 +136,34 @@ class MatchPredictor:
             return None
         return self._calibrar("1X2", probabilidad_cruda)
 
+    # Cada selección de Doble Oportunidad es la suma de dos resultados del
+    # 1X2 mutuamente excluyentes -- por definición, no hace falta (ni tiene
+    # sentido) estimarla por separado.
+    _DOBLE_OPORTUNIDAD_A = {"1X": "LOCAL", "12": "LOCAL", "X2": "EMPATE"}
+    _DOBLE_OPORTUNIDAD_B = {"1X": "EMPATE", "12": "VISITANTE", "X2": "VISITANTE"}
+
+    def predecir_probabilidad_doble_oportunidad(self, partido: Partido, seleccion: str) -> float | None:
+        """
+        P(seleccion) para Doble Oportunidad ("1X"=Local o Empate, "12"=Local o
+        Visitante, "X2"=Empate o Visitante) -- se deriva sumando las dos
+        probabilidades de 1X2 ya calibradas que la componen, en vez de pedirle
+        una curva de calibración propia a este mercado. Es matemáticamente
+        exacto (son resultados mutuamente excluyentes) y hereda la validación
+        real que ya tiene 1X2, sin tener que backtestear un mercado nuevo
+        desde cero antes de poder usarlo -- ver trading_engine/scanner.py
+        sobre cómo esto se trata como "calibrado" igual que 1X2.
+        """
+        resultado_a = self._DOBLE_OPORTUNIDAD_A.get(seleccion)
+        resultado_b = self._DOBLE_OPORTUNIDAD_B.get(seleccion)
+        if resultado_a is None or resultado_b is None:
+            return None
+
+        prob_a = self.predecir_probabilidad_1x2(partido, resultado_a)
+        prob_b = self.predecir_probabilidad_1x2(partido, resultado_b)
+        if prob_a is None or prob_b is None:
+            return None
+        return prob_a + prob_b
+
     def predecir_probabilidad_over(self, partido: Partido, linea: float) -> float | None:
         """
         P(goles totales > linea), ej. linea=2.5 para el mercado "Más de 2.5 goles".

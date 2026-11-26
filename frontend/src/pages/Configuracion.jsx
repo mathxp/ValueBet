@@ -10,6 +10,7 @@ const CAMPOS_RIESGO = [
   { key: "kelly_fraction", label: "Fracción de Kelly", tipo: "porcentaje" },
   { key: "max_stake_per_bet", label: "Stake máximo sugerido", tipo: "monto" },
   { key: "min_edge_threshold", label: "Edge mínimo para recomendar", tipo: "porcentaje" },
+  { key: "probabilidad_minima_seleccion", label: "Probabilidad mínima para recomendar sola", tipo: "porcentaje" },
 ];
 
 function aFormulario(config) {
@@ -18,6 +19,7 @@ function aFormulario(config) {
     kelly_fraction: String(Number(config.kelly_fraction) * 100),
     max_stake_per_bet: String(config.max_stake_per_bet),
     min_edge_threshold: String(Number(config.min_edge_threshold) * 100),
+    probabilidad_minima_seleccion: String(Number(config.probabilidad_minima_seleccion) * 100),
   };
 }
 
@@ -59,6 +61,7 @@ export default function Configuracion() {
         kelly_fraction: Number(form.kelly_fraction) / 100,
         max_stake_per_bet: Number(form.max_stake_per_bet),
         min_edge_threshold: Number(form.min_edge_threshold) / 100,
+        probabilidad_minima_seleccion: Number(form.probabilidad_minima_seleccion) / 100,
       };
       const actualizada = await actualizarConfiguracionRiesgo(cambios);
       setConfig(actualizada);
@@ -99,11 +102,16 @@ export default function Configuracion() {
         </p>
       </Card>
 
-      <InfoBox title="Sobre la sección de Recomendaciones">
+      <InfoBox title="Sobre las recomendaciones">
         <p>
-          Los parámetros de abajo (Kelly, stake máximo, edge mínimo) solo afectan a la pestaña{" "}
-          <strong>Recomendaciones</strong> — no tienen efecto sobre las predicciones de goles
-          esperados, que se calculan aparte con el historial real de partidos.
+          Los parámetros de abajo (Kelly, stake máximo, edge mínimo, probabilidad mínima) solo
+          afectan a las recomendaciones de la pestaña <strong>Predicciones</strong> — no tienen
+          efecto sobre las predicciones de goles esperados, que se calculan aparte con el historial real de
+          partidos. La <strong>probabilidad mínima</strong> es la única que no mide rentabilidad:
+          filtra selecciones que tienen valor pero perderían la mayoría de las veces (ej. un
+          equipo con 30% de probabilidad de ganar), para no recomendarlas solas aunque a la larga
+          serían rentables. Si el mismo partido tiene una versión más segura de la misma señal
+          (ej. Doble Oportunidad en vez de 1X2 a secas), esa se sigue recomendando igual.
         </p>
       </InfoBox>
 
@@ -161,6 +169,10 @@ export default function Configuracion() {
             <div>
               <dt>Edge mínimo para recomendar</dt>
               <dd>{formatPercent(config.min_edge_threshold)}</dd>
+            </div>
+            <div>
+              <dt>Probabilidad mínima para recomendar sola</dt>
+              <dd>{formatPercent(config.probabilidad_minima_seleccion)}</dd>
             </div>
             <div>
               <dt>Exchange conectado</dt>

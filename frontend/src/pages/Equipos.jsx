@@ -5,6 +5,86 @@ import InfoBox from "../components/InfoBox";
 import TeamCrest from "../components/TeamCrest";
 import { getEquipoRatings } from "../services/api";
 
+const COLUMNAS_RATING = [
+  { key: "nombre", label: "Equipo" },
+  { key: "ataque", label: "Ataque" },
+  { key: "defensa", label: "Defensa" },
+  { key: "partidos", label: "Partidos" },
+  { key: "confiable", label: "Confiable" },
+];
+
+function valorOrden(r, campo) {
+  if (campo === "nombre") return r.equipo.nombre;
+  if (campo === "confiable") return r.confiable ? 1 : 0;
+  return r[campo];
+}
+
+function TablaRatings({ ratings }) {
+  // Sin ordenar por defecto (orden que ya trae la API) -- un clic en la
+  // columna alcanza para ver, por ejemplo, quién tiene más ataque o peor
+  // defensa (descendente = los números más altos primero, sea cual sea la
+  // columna -- para Defensa eso muestra primero a los que MÁS goles reciben,
+  // no a los mejores).
+  const [ordenPor, setOrdenPor] = useState(null);
+  const [ordenDesc, setOrdenDesc] = useState(true);
+
+  const filas = useMemo(() => {
+    if (!ordenPor) return ratings;
+    const copia = [...ratings];
+    copia.sort((a, b) => {
+      const valorA = valorOrden(a, ordenPor);
+      const valorB = valorOrden(b, ordenPor);
+      if (typeof valorA === "string") {
+        return ordenDesc ? valorB.localeCompare(valorA) : valorA.localeCompare(valorB);
+      }
+      return ordenDesc ? valorB - valorA : valorA - valorB;
+    });
+    return copia;
+  }, [ratings, ordenPor, ordenDesc]);
+
+  function ordenarPor(campo) {
+    if (campo === ordenPor) {
+      setOrdenDesc((desc) => !desc);
+    } else {
+      setOrdenPor(campo);
+      setOrdenDesc(true);
+    }
+  }
+
+  return (
+    <div className="operations-table__scroll">
+      <table className="operations-table">
+        <thead>
+          <tr>
+            {COLUMNAS_RATING.map((col) => (
+              <th key={col.key} onClick={() => ordenarPor(col.key)} className="equipos-page__th-ordenable">
+                {col.label}
+                {ordenPor === col.key && (ordenDesc ? " ▼" : " ▲")}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((r) => (
+            <tr key={r.equipo.id}>
+              <td>
+                <div className="equipos-page__nombre">
+                  <TeamCrest equipo={r.equipo} className="equipos-page__logo" />
+                  {r.equipo.nombre}
+                </div>
+              </td>
+              <td>{r.ataque.toFixed(2)}</td>
+              <td>{r.defensa.toFixed(2)}</td>
+              <td>{r.partidos}</td>
+              <td>{r.confiable ? "Sí" : "Todavía no"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Equipos() {
   const [ratings, setRatings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +115,9 @@ export default function Equipos() {
           Los números están <strong>ajustados estadísticamente</strong> hacia el promedio de la
           liga cuando un equipo tiene pocos partidos jugados, para no sacar conclusiones
           exageradas de una racha corta. La columna <strong>confiable</strong> indica si ya superó
-          el mínimo de 3 partidos para que la proyección se use en las predicciones.
+          el mínimo de 3 partidos para que la proyección se use en las predicciones. Hacé clic en
+          una columna para ordenar por esa estadística — por ejemplo, para ver qué equipos tienen
+          más ataque o peor defensa.
         </p>
       </InfoBox>
 
@@ -49,35 +131,7 @@ export default function Equipos() {
               Todavía no hay partidos finalizados cargados para calcular ratings.
             </p>
           ) : (
-            <div className="operations-table__scroll">
-              <table className="operations-table">
-                <thead>
-                  <tr>
-                    <th>Equipo</th>
-                    <th>Ataque</th>
-                    <th>Defensa</th>
-                    <th>Partidos</th>
-                    <th>Confiable</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ratings.map((r) => (
-                    <tr key={r.equipo.id}>
-                      <td>
-                        <div className="equipos-page__nombre">
-                          <TeamCrest equipo={r.equipo} className="equipos-page__logo" />
-                          {r.equipo.nombre}
-                        </div>
-                      </td>
-                      <td>{r.ataque.toFixed(2)}</td>
-                      <td>{r.defensa.toFixed(2)}</td>
-                      <td>{r.partidos}</td>
-                      <td>{r.confiable ? "Sí" : "Todavía no"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <TablaRatings ratings={ratings} />
           )}
         </Card>
       )}
@@ -135,6 +189,12 @@ function EstadisticasFotMob({ ratings }) {
           liga, y el resto del modelo sí pasó por ese proceso antes de influir en una
           recomendación. Hacé clic en una columna para ordenar por esa estadística — por ejemplo,
           para ver qué equipos generan más corners o más ocasiones claras.
+        </p>
+        <p>
+          Solo aparecen los equipos que FotMob ya publicó para la temporada {temporada} -- un
+          equipo recién ascendido puede no figurar acá todavía aunque sí tenga rating de
+          ataque/defensa arriba (ese se calcula con nuestro propio historial de partidos, no
+          depende de FotMob).
         </p>
       </InfoBox>
 

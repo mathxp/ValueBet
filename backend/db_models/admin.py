@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 
-from .models import ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
+from .models import Combinada, ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
 
 
 @admin.register(Equipo)
@@ -96,7 +96,14 @@ class PartidoAdmin(admin.ModelAdmin):
 class ConfiguracionRiesgoAdmin(admin.ModelAdmin):
     """Fila única -- también editable desde el dashboard (pestaña Configuración)."""
 
-    list_display = ("paper_bankroll", "kelly_fraction", "max_stake_per_bet", "min_edge_threshold", "actualizado_en")
+    list_display = (
+        "paper_bankroll",
+        "kelly_fraction",
+        "max_stake_per_bet",
+        "min_edge_threshold",
+        "probabilidad_minima_seleccion",
+        "actualizado_en",
+    )
 
     def has_add_permission(self, request):
         return not ConfiguracionRiesgo.objects.exists()
@@ -171,3 +178,54 @@ class OperacionAdmin(admin.ModelAdmin):
             operacion.marcar_anulada()
             actualizadas += 1
         self.message_user(request, f"{actualizadas} recomendación(es) anulada(s).")
+
+
+@admin.register(Combinada)
+class CombinadaAdmin(admin.ModelAdmin):
+    """Mismo flujo que OperacionAdmin -- ver trading_engine/combinador.py."""
+
+    list_display = ("id", "cantidad_patas", "cuota_combinada", "valor_esperado", "stake", "estado", "pnl", "creado_en")
+    list_filter = ("estado",)
+    actions = ["marcar_aceptada", "marcar_descartada", "marcar_ganada", "marcar_perdida", "marcar_anulada"]
+
+    @admin.display(description="Patas")
+    def cantidad_patas(self, obj):
+        return obj.patas.count()
+
+    @admin.action(description="Marcar como aceptada (la aposté)")
+    def marcar_aceptada(self, request, queryset):
+        actualizadas = queryset.filter(estado=Combinada.Estado.RECOMENDADA).update(
+            estado=Combinada.Estado.ACEPTADA
+        )
+        self.message_user(request, f"{actualizadas} combinada(s) marcada(s) como aceptada(s).")
+
+    @admin.action(description="Marcar como descartada (no la tomé)")
+    def marcar_descartada(self, request, queryset):
+        actualizadas = queryset.filter(estado=Combinada.Estado.RECOMENDADA).update(
+            estado=Combinada.Estado.DESCARTADA
+        )
+        self.message_user(request, f"{actualizadas} combinada(s) marcada(s) como descartada(s).")
+
+    @admin.action(description="Marcar como ganada (calcula el PNL)")
+    def marcar_ganada(self, request, queryset):
+        actualizadas = 0
+        for combinada in queryset.filter(estado=Combinada.Estado.ACEPTADA):
+            combinada.marcar_ganada()
+            actualizadas += 1
+        self.message_user(request, f"{actualizadas} combinada(s) marcada(s) como ganada(s).")
+
+    @admin.action(description="Marcar como perdida (calcula el PNL)")
+    def marcar_perdida(self, request, queryset):
+        actualizadas = 0
+        for combinada in queryset.filter(estado=Combinada.Estado.ACEPTADA):
+            combinada.marcar_perdida()
+            actualizadas += 1
+        self.message_user(request, f"{actualizadas} combinada(s) marcada(s) como perdida(s).")
+
+    @admin.action(description="Anular (push -- devuelve el stake, sin efecto en el PNL)")
+    def marcar_anulada(self, request, queryset):
+        actualizadas = 0
+        for combinada in queryset.filter(estado=Combinada.Estado.ACEPTADA):
+            combinada.marcar_anulada()
+            actualizadas += 1
+        self.message_user(request, f"{actualizadas} combinada(s) anulada(s).")

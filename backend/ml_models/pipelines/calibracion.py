@@ -108,14 +108,23 @@ def construir_curva_calibracion(
 ) -> list[tuple[float, float]] | None:
     """
     Curva de calibración: un punto (probabilidad predicha promedio,
-    frecuencia real) por cada bucket con muestra suficiente. None si hay
-    menos de dos puntos confiables -- no alcanza para interpolar nada, y
+    frecuencia real) por cada bucket con muestra suficiente. None si no hay
+    ni un solo punto confiable -- no hay evidencia real de nada, y
     `aplicar_calibracion` debe usar la probabilidad cruda sin tocar en ese
     caso (nunca se inventa una corrección sin evidencia real detrás).
+
+    Un solo punto confiable es válido (no exige un mínimo de dos): pasa con
+    mercados como Over/Under 0.5, donde casi todos los partidos proyectan
+    probabilidad alta y los casos reales caen siempre en el mismo bucket --
+    no es falta de muestra (puede haber miles de casos ahí adentro), es que
+    la variable en sí casi no tiene rango donde repartirse. `aplicar_
+    calibracion` ya sabe tratar un único punto como una corrección plana
+    (la frecuencia real medida, sin interpolar nada) en vez de interpolar
+    entre dos.
     """
     buckets = calcular_buckets(pares, n_buckets)
     puntos = [(b.prob_promedio, b.frecuencia_real) for b in buckets if b.n >= min_n]
-    return puntos if len(puntos) >= 2 else None
+    return puntos if len(puntos) >= 1 else None
 
 
 def aplicar_calibracion(puntos: list[tuple[float, float]] | None, probabilidad_cruda: float) -> float:

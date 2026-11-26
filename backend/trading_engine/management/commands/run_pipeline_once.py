@@ -27,7 +27,7 @@ class Command(BaseCommand):
 
         from data_ingestion.tasks import fetch_upcoming_fixtures, refresh_odds_for_live_window
         from ml_models.tasks import project_xg_for_upcoming_matches, reconciliar_analisis
-        from trading_engine.tasks import scan_market_odds
+        from trading_engine.tasks import generar_combinadas_pendientes, scan_market_odds
 
         horas = options["hours_ahead"]
 
@@ -44,6 +44,9 @@ class Command(BaseCommand):
 
         operaciones = scan_market_odds(minutes_ahead=horas * 60)
         self.stdout.write(self.style.SUCCESS(f"Recomendaciones nuevas generadas: {operaciones}"))
+
+        combinadas = generar_combinadas_pendientes(horas_adelante=horas)
+        self.stdout.write(f"Combinadas generadas: {combinadas}")
 
         resueltos = reconciliar_analisis()
         self.stdout.write(f"Análisis reconciliados con resultado real: {resueltos}")

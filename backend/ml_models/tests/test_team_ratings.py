@@ -6,7 +6,9 @@ from django.utils import timezone
 from db_models.models import Equipo, Partido
 from ml_models.pipelines.team_ratings import (
     MIN_PARTIDOS_PARA_RATING,
+    _historial_finalizados,
     calcular_ratings,
+    factor_localia,
     proyectar_xg,
 )
 
@@ -119,3 +121,47 @@ class ProyectarXgTests(TestCase):
         xg_a_local, _ = proyectar_xg(self.a.api_football_id, self.b.api_football_id)
         _, xg_a_visita = proyectar_xg(self.b.api_football_id, self.a.api_football_id)
         self.assertGreater(xg_a_local, xg_a_visita)
+
+
+class FactorLocaliaTests(TestCase):
+    def test_favorece_al_local_cuando_los_locales_anotan_mas(self):
+        local = Equipo.objects.create(nombre="FL Local", api_football_id=93011)
+        visita = Equipo.objects.create(nombre="FL Visita", api_football_id=93012)
+        for i in range(10):
+            _crear_finalizado(local, visita, dias_atras=i + 1, gl=2, gv=1)
+
+        factor_local, factor_visita = factor_localia()
+        self.assertGreater(factor_local, 1.0)
+        self.assertLess(factor_visita, 1.0)
+
+    def test_sin_historial_retorna_neutro(self):
+        self.assertEqual(factor_localia(liga="Liga Sin Partidos"), (1.0, 1.0))
+
+
+class HistorialFinalizadosTests(TestCase):
+    def test_no_trunca_el_historial_aunque_haya_mas_de_1000_partidos(self):
+        """Bug real: esta función cortaba en los 1000 partidos finalizados más
+        recientes sin avisar -- ni el propio docstring lo mencionaba (decía
+        "en producción se usa todo el historial disponible"). calcular_ratings()
+        no lo sufría (se autolimita por equipo con MAX_PARTIDOS_POR_EQUIPO), pero
+        factor_localia() promedia sobre TODO lo que devuelva esta función, así que
+        el tope le cortaba en silencio las temporadas más viejas a medida que la
+        liga acumulaba historial (ver HANDOFF_dataset_contexto.md sección 2.1).
+        Con más de 1000 partidos cargados, tienen que volver todos."""
+        local = Equipo.objects.create(nombre="Historico Local", api_football_id=93021)
+        visita = Equipo.objects.create(nombre="Historico Visita", api_football_id=93022)
+        cantidad = 1005
+        Partido.objects.bulk_create(
+            [
+                Partido(
+                    equipo_local=local,
+                    equipo_visitante=visita,
+                    fecha_hora=timezone.now() - timedelta(days=i + 1),
+                    estado=Partido.Estado.FINALIZADO,
+                    resultado={"local": 1, "visitante": 0},
+                )
+                for i in range(cantidad)
+            ]
+        )
+
+        self.assertEqual(len(_historial_finalizados()), cantidad)

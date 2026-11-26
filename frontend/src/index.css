@@ -1,71 +1,35 @@
 :root {
-  color-scheme: dark;
-
-  /* Brand -- anclado al logo (navy + verde). Azul para interacción/foco/
-     gráficos, verde para acciones positivas y crecimiento (xG, ganancias).
-     Oscuro por defecto (pedido explícito) -- el claro queda disponible bajo
-     [data-theme="light"] por si en algún momento se agrega un selector. */
-  --brand-navy: #0f2545;
-  --brand-blue: #5b8def;
-  --brand-blue-strong: #7ba4f4;
-  --brand-green: #34d372;
-  --brand-green-strong: #4ade80;
-
-  --surface-0: #0b1220;
-  --surface-1: #131b2c;
-  --surface-2: #1a2438;
-  --page: #080d17;
-
-  --text-primary: #f3f6fb;
-  --text-secondary: #aab4c8;
-  --text-muted: #6d7891;
-
-  --gridline: #232e45;
-  --baseline: #34405c;
-  --border: rgba(255, 255, 255, 0.09);
-
-  --series-1: var(--brand-blue);
-  --series-1-strong: var(--brand-blue-strong);
-
-  --status-good: #34d372;
-  --status-warning: #f2a93c;
-  --status-serious: #f0855a;
-  --status-critical: #f16565;
-  --success-text: #4ade80;
-  --negative: #f16565;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 30%, transparent);
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Manrope", "Inter", system-ui, sans-serif;
-}
-
-:root[data-theme="light"] {
   color-scheme: light;
 
-  --brand-blue: #2563eb;
-  --brand-blue-strong: #1d4ed8;
+  /* Brand -- blanco y verde solamente (pedido explícito, sin negro). El
+     texto necesita igual un tono oscuro para contraste -- se usa un
+     verde-negro muy oscuro, no un gris neutro, para que incluso el texto
+     quede dentro de la misma familia de color. "--brand-blue"/"--brand-navy"
+     mantienen esos nombres (los usa medio proyecto) pero resuelven a verde --
+     cambiar el nombre de la variable en cada archivo hubiera sido mucho más
+     riesgoso que repintar el valor acá y dejar que se propague solo. Dos
+     verdes distintos a propósito: "--brand-blue" (interacción/foco/
+     gráficos/nav activo) es un verde más intenso tipo cancha; "--brand-green"
+     (PNL positivo, ganadas) es un verde más claro, para que no se confundan
+     siendo el mismo tono exacto. */
+  --brand-navy: #0a120a;
+  --brand-blue: #0f8a3e;
+  --brand-blue-strong: #0c6e32;
   --brand-green: #16a34a;
   --brand-green-strong: #15803d;
 
-  --surface-0: #eef1f6;
+  --surface-0: #f2f6f2;
   --surface-1: #ffffff;
-  --surface-2: #f3f5f9;
-  --page: #eef1f6;
+  --surface-2: #eef3ee;
+  --page: #f2f6f2;
 
-  --text-primary: #0f172a;
-  --text-secondary: #47536b;
-  --text-muted: #94a1b8;
+  --text-primary: #0a120a;
+  --text-secondary: #42523f;
+  --text-muted: #85927f;
 
-  --gridline: #e6e9f0;
-  --baseline: #cad1e0;
-  --border: rgba(15, 23, 42, 0.09);
+  --gridline: #e2ebe2;
+  --baseline: #c5d4c2;
+  --border: rgba(10, 18, 10, 0.09);
 
   --series-1: var(--brand-blue);
   --series-1-strong: var(--brand-blue-strong);
@@ -80,6 +44,49 @@
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.05);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 22%, transparent);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Manrope", "Inter", system-ui, sans-serif;
+}
+
+/* Oscuro: no se usa hoy (no hay selector de tema en la app), queda como
+   opción guardada por si en algún momento se agrega uno. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --brand-navy: #0a0f0a;
+  --brand-blue: #19a94b;
+  --brand-blue-strong: #0f7a37;
+  --brand-green: #34d372;
+  --brand-green-strong: #4ade80;
+
+  --surface-0: #0a0d0a;
+  --surface-1: #12170f;
+  --surface-2: #1a221a;
+  --page: #070907;
+
+  --text-primary: #f6f8f6;
+  --text-secondary: #a9b5a9;
+  --text-muted: #6d796d;
+
+  --gridline: #1f281f;
+  --baseline: #384a38;
+  --border: rgba(255, 255, 255, 0.09);
+
+  --status-good: #34d372;
+  --status-warning: #f2a93c;
+  --status-serious: #f0855a;
+  --status-critical: #f16565;
+  --success-text: #4ade80;
+  --negative: #f16565;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-blue) 30%, transparent);
 }
 
 * {

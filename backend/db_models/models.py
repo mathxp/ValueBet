@@ -379,6 +379,13 @@ class ConfiguracionRiesgo(models.Model):
     kelly_fraction = models.FloatField()
     max_stake_per_bet = models.DecimalField(max_digits=10, decimal_places=2)
     min_edge_threshold = models.FloatField()
+    probabilidad_minima_seleccion = models.FloatField(
+        default=0.40,
+        help_text=(
+            "Piso de probabilidad del modelo para recomendar una selección individual, "
+            "aunque tenga edge positivo -- ver trading_engine/scanner.py."
+        ),
+    )
 
     actualizado_en = models.DateTimeField(auto_now=True)
 
@@ -404,6 +411,7 @@ class ConfiguracionRiesgo(models.Model):
                 "kelly_fraction": settings.KELLY_FRACTION,
                 "max_stake_per_bet": settings.MAX_STAKE_PER_BET,
                 "min_edge_threshold": settings.MIN_EDGE_THRESHOLD,
+                "probabilidad_minima_seleccion": settings.PROBABILIDAD_MINIMA_SELECCION,
             },
         )
         return instancia
@@ -464,10 +472,91 @@ class ResultadoBacktest(models.Model):
 
     class Meta:
         ordering = ["mercado"]
-
-    class Meta:
-        verbose_name = "Calibración de mercado"
-        verbose_name_plural = "Calibraciones de mercado"
+        verbose_name = "Resultado de backtest"
+        verbose_name_plural = "Resultados de backtest"
 
     def __str__(self):
-        return f"Calibración {self.mercado} (n={self.n_total})"
+        return f"Backtest {self.mercado} (n={self.n})"
+
+
+class Combinada(models.Model):
+    """
+    Apuesta combinada (parlay) de 2-3 patas de partidos DISTINTOS -- nunca dos
+    mercados del mismo partido (eso estaría correlacionado, ver
+    trading_engine/scanner.py:_distancia_a_proyeccion sobre por qué ya se evita
+    esa correlación incluso dentro de un solo mercado). Generada por
+    trading_engine/combinador.py, que arma la lista priorizando la
+    PROBABILIDAD de cada pata (no el edge) -- el objetivo explícito de una
+    combinada es acertar, no maximizar valor esperado por pata.
+
+    Mismo ciclo de vida que Operacion (RECOMENDADA -> ACEPTADA/DESCARTADA ->
+    GANADA/PERDIDA/ANULADA) y misma idea: es una sugerencia, nunca se ejecuta
+    sola.
+    """
+
+    class Estado(models.TextChoices):
+        RECOMENDADA = "RECOMMENDED", "Recomendada"
+        ACEPTADA = "ACCEPTED", "Aceptada"
+        DESCARTADA = "DISCARDED", "Descartada"
+        GANADA = "WON", "Ganada"
+        PERDIDA = "LOST", "Perdida"
+        ANULADA = "VOID", "Anulada"
+
+    patas = models.ManyToManyField(
+        AnalisisPartido,
+        related_name="combinadas",
+        help_text="Los análisis (uno por partido) que componen esta combinada.",
+    )
+
+    cuota_combinada = models.DecimalField(
+        max_digits=10, decimal_places=3, help_text="Producto de la cuota de cada pata."
+    )
+    probabilidad_combinada = models.FloatField(
+        help_text="Producto de la probabilidad de cada pata (patas de partidos distintos, se asumen independientes)."
+    )
+    valor_esperado = models.FloatField(help_text="EV combinado: (probabilidad_combinada * cuota_combinada) - 1")
+
+    kelly_fraccion_usada = models.FloatField()
+    stake = models.DecimalField(max_digits=10, decimal_places=2)
+
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.RECOMENDADA)
+    pnl = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-creado_en"]
+        verbose_name = "Combinada"
+        verbose_name_plural = "Combinadas"
+
+    def __str__(self):
+        return f"Combinada #{self.pk} ({self.patas.count()} patas) @ {self.cuota_combinada}"
+
+    def aceptar(self):
+        self.estado = self.Estado.ACEPTADA
+        self.save(update_fields=["estado", "actualizado_en"])
+
+    def descartar(self):
+        self.estado = self.Estado.DESCARTADA
+        self.save(update_fields=["estado", "actualizado_en"])
+
+    def marcar_ganada(self):
+        self.pnl = self.stake * (self.cuota_combinada - 1)
+        self.estado = self.Estado.GANADA
+        self.save(update_fields=["pnl", "estado", "actualizado_en"])
+
+    def marcar_perdida(self):
+        self.pnl = -self.stake
+        self.estado = self.Estado.PERDIDA
+        self.save(update_fields=["pnl", "estado", "actualizado_en"])
+
+    def marcar_anulada(self):
+        self.pnl = Decimal("0")
+        self.estado = self.Estado.ANULADA
+        self.save(update_fields=["pnl", "estado", "actualizado_en"])
+
+    def revertir_a_aceptada(self):
+        self.pnl = None
+        self.estado = self.Estado.ACEPTADA
+        self.save(update_fields=["pnl", "estado", "actualizado_en"])

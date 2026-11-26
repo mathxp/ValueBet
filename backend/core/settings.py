@@ -169,3 +169,11 @@ PAPER_BANKROLL = config("PAPER_BANKROLL", default=5000.0, cast=float)
 KELLY_FRACTION = config("KELLY_FRACTION", default=0.25, cast=float)  # quarter-Kelly
 MAX_STAKE_PER_BET = config("MAX_STAKE_PER_BET", default=500.0, cast=float)
 MIN_EDGE_THRESHOLD = config("MIN_EDGE_THRESHOLD", default=0.05, cast=float)  # 5%
+
+# Un edge positivo no alcanza por sí solo para que una recomendación individual
+# "se sienta bien": un pick con 25-30% de probabilidad va a perder la mayoría
+# de las veces aunque tenga valor a largo plazo, y eso no es lo que se pidió
+# ("tratando de acertar", no maximizar EV puro). Este piso no descarta el edge
+# -- si el mismo partido tiene una versión más seguro de la misma señal (ej.
+# Doble Oportunidad en vez de 1X2 a secas), esa sigue recomendándose normal.
+PROBABILIDAD_MINIMA_SELECCION = config("PROBABILIDAD_MINIMA_SELECCION", default=0.40, cast=float)  # 40%

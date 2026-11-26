@@ -9,6 +9,7 @@ router.register(r"partidos", views.PartidoViewSet)
 router.register(r"historial-cuotas", views.HistorialCuotasViewSet)
 router.register(r"operaciones", views.OperacionViewSet)
 router.register(r"analisis", views.AnalisisPartidoViewSet)
+router.register(r"combinadas", views.CombinadaViewSet)
 
 urlpatterns = [
     path("config/", views.ConfiguracionView.as_view(), name="configuracion"),

@@ -1,0 +1,119 @@
+.mejor-apuesta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px 18px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.mejor-apuesta::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand-green-strong), var(--brand-blue));
+}
+
+.mejor-apuesta--vacia {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+
+.mejor-apuesta__icono {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.mejor-apuesta__titulo {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mejor-apuesta__detalle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.mejor-apuesta__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mejor-apuesta__etiqueta {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--brand-green-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mejor-apuesta__score {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+}
+
+.mejor-apuesta__pick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mejor-apuesta__seleccion {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.mejor-apuesta__mercado {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.mejor-apuesta__numeros {
+  display: flex;
+  gap: 24px;
+}
+
+.mejor-apuesta__numeros > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mejor-apuesta__numero-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mejor-apuesta__numeros strong {
+  font-size: 17px;
+}
+
+.mejor-apuesta__nota {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}

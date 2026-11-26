@@ -35,6 +35,24 @@ export const marcarOperacionAnulada = (id) =>
 
 export const revertirOperacion = (id) => api.post(`operaciones/${id}/revertir/`).then((r) => r.data);
 
+export const getCombinadas = (params) => api.get("combinadas/", { params }).then((r) => r.data);
+
+export const aceptarCombinada = (id) => api.post(`combinadas/${id}/aceptar/`).then((r) => r.data);
+
+export const descartarCombinada = (id) =>
+  api.post(`combinadas/${id}/descartar/`).then((r) => r.data);
+
+export const marcarCombinadaGanada = (id) =>
+  api.post(`combinadas/${id}/marcar-ganada/`).then((r) => r.data);
+
+export const marcarCombinadaPerdida = (id) =>
+  api.post(`combinadas/${id}/marcar-perdida/`).then((r) => r.data);
+
+export const marcarCombinadaAnulada = (id) =>
+  api.post(`combinadas/${id}/marcar-anulada/`).then((r) => r.data);
+
+export const revertirCombinada = (id) => api.post(`combinadas/${id}/revertir/`).then((r) => r.data);
+
 export const getAnalisis = (params) => api.get("analisis/", { params }).then((r) => r.data);
 
 export const getRendimientoModelo = () =>

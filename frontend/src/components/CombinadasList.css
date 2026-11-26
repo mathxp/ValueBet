@@ -1,0 +1,74 @@
+.combinadas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.combinada-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.combinada-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.combinada-card__patas-count {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.combinada-card__patas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
+  padding: 8px 0;
+}
+
+.combinada-card__patas li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+}
+
+.combinada-card__apuesta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.combinada-card__resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 10px;
+}
+
+.combinada-card__resumen > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.combinada-card__resumen strong {
+  font-size: 14px;
+}
+
+.combinada-card__acciones {
+  display: flex;
+  justify-content: flex-end;
+}

@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from db_models.models import (
     AnalisisPartido,
+    Combinada,
     ConfiguracionRiesgo,
     Equipo,
     HistorialCuotas,
@@ -17,6 +18,7 @@ from db_models.models import (
 )
 from db_models.serializers import (
     AnalisisPartidoSerializer,
+    CombinadaSerializer,
     ConfiguracionRiesgoSerializer,
     EquipoSerializer,
     HistorialCuotasSerializer,
@@ -117,7 +119,10 @@ class OperacionViewSet(viewsets.ModelViewSet):
     serializer_class = OperacionSerializer
     filterset_fields = {
         "mercado": ["exact"],
-        "estado": ["exact"],
+        # "in" además de "exact" -- el dashboard lo usa para pedir "todo
+        # menos descartadas" por defecto (?estado__in=a,b,c) sin tener que
+        # listar cada estado como filtro exact aparte.
+        "estado": ["exact", "in"],
         "partido__temporada": ["exact"],
     }
 
@@ -223,6 +228,95 @@ class OperacionViewSet(viewsets.ModelViewSet):
         agregados["minimo_requerido"] = minimo_para_comparar
         agregados["muestra_suficiente"] = finalizadas >= minimo_para_comparar
         return Response(agregados)
+
+
+class CombinadaViewSet(viewsets.ModelViewSet):
+    """
+    Mismas acciones que OperacionViewSet (aceptar/descartar/marcar_*/revertir)
+    y misma razón de ser -- ver trading_engine/combinador.py para cómo se
+    arma cada combinada.
+    """
+
+    queryset = Combinada.objects.prefetch_related("patas__partido__equipo_local", "patas__partido__equipo_visitante").all()
+    serializer_class = CombinadaSerializer
+    filterset_fields = {"estado": ["exact"]}
+
+    def _requiere_estado(self, combinada, estado_esperado):
+        if combinada.estado != estado_esperado:
+            return Response(
+                {"detail": f"La combinada está en estado {combinada.estado}, se esperaba {estado_esperado}."},
+                status=409,
+            )
+        return None
+
+    def _requiere_estado_en(self, combinada, estados_esperados):
+        if combinada.estado not in estados_esperados:
+            return Response(
+                {
+                    "detail": (
+                        f"La combinada está en estado {combinada.estado}, se esperaba uno de "
+                        f"{', '.join(estados_esperados)}."
+                    )
+                },
+                status=409,
+            )
+        return None
+
+    @action(detail=True, methods=["post"])
+    def aceptar(self, request, pk=None):
+        combinada = self.get_object()
+        error = self._requiere_estado(combinada, Combinada.Estado.RECOMENDADA)
+        if error:
+            return error
+        combinada.aceptar()
+        return Response(self.get_serializer(combinada).data)
+
+    @action(detail=True, methods=["post"])
+    def descartar(self, request, pk=None):
+        combinada = self.get_object()
+        error = self._requiere_estado(combinada, Combinada.Estado.RECOMENDADA)
+        if error:
+            return error
+        combinada.descartar()
+        return Response(self.get_serializer(combinada).data)
+
+    @action(detail=True, methods=["post"], url_path="marcar-ganada")
+    def marcar_ganada(self, request, pk=None):
+        combinada = self.get_object()
+        error = self._requiere_estado(combinada, Combinada.Estado.ACEPTADA)
+        if error:
+            return error
+        combinada.marcar_ganada()
+        return Response(self.get_serializer(combinada).data)
+
+    @action(detail=True, methods=["post"], url_path="marcar-perdida")
+    def marcar_perdida(self, request, pk=None):
+        combinada = self.get_object()
+        error = self._requiere_estado(combinada, Combinada.Estado.ACEPTADA)
+        if error:
+            return error
+        combinada.marcar_perdida()
+        return Response(self.get_serializer(combinada).data)
+
+    @action(detail=True, methods=["post"], url_path="marcar-anulada")
+    def marcar_anulada(self, request, pk=None):
+        combinada = self.get_object()
+        error = self._requiere_estado(combinada, Combinada.Estado.ACEPTADA)
+        if error:
+            return error
+        combinada.marcar_anulada()
+        return Response(self.get_serializer(combinada).data)
+
+    @action(detail=True, methods=["post"])
+    def revertir(self, request, pk=None):
+        combinada = self.get_object()
+        error = self._requiere_estado_en(
+            combinada, [Combinada.Estado.GANADA, Combinada.Estado.PERDIDA, Combinada.Estado.ANULADA]
+        )
+        if error:
+            return error
+        combinada.revertir_a_aceptada()
+        return Response(self.get_serializer(combinada).data)
 
 
 class AnalisisPartidoViewSet(viewsets.ReadOnlyModelViewSet):
@@ -508,6 +602,7 @@ class ConfiguracionView(APIView):
             "kelly_fraction": config.kelly_fraction,
             "max_stake_per_bet": config.max_stake_per_bet,
             "min_edge_threshold": config.min_edge_threshold,
+            "probabilidad_minima_seleccion": config.probabilidad_minima_seleccion,
             "actualizado_en": config.actualizado_en,
             "watched_leagues": list(settings.WATCHED_LEAGUES),
             "api_football_configurado": bool(settings.API_FOOTBALL_KEY),

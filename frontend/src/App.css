@@ -111,6 +111,7 @@
   flex-direction: column;
   gap: 24px;
   max-width: 1040px;
+  min-width: 0;
   margin: 0 auto;
   padding: 28px 28px 64px;
 }
@@ -186,28 +187,64 @@
 
 .predicciones-page,
 .equipos-page,
-.recomendaciones-page,
+.dashboard-page,
 .config-page {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.recomendaciones-page__seccion {
-  margin: 12px 0 -8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--gridline);
-  padding-bottom: 8px;
+  min-width: 0;
 }
 
 .match-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
+}
+
+.recom-simple-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recom-simple-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.recom-simple-item:last-child {
+  border-bottom: none;
+}
+
+.recom-simple-item__pick {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 160px;
+}
+
+.recom-simple-item__seleccion {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.recom-simple-item__mercado {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.recom-simple-item__numeros {
+  display: flex;
+  gap: 18px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
 }
 
 .dashboard__stats {
@@ -417,6 +454,7 @@
 
 .pagination {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   font-size: 13px;

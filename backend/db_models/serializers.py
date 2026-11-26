@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import AnalisisPartido, ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
+from .models import AnalisisPartido, Combinada, ConfiguracionRiesgo, Equipo, HistorialCuotas, Operacion, Partido
 
 
 class EquipoSerializer(serializers.ModelSerializer):
@@ -68,10 +68,25 @@ class AnalisisPartidoSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class CombinadaSerializer(serializers.ModelSerializer):
+    patas = AnalisisPartidoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Combinada
+        fields = "__all__"
+
+
 class ConfiguracionRiesgoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConfiguracionRiesgo
-        fields = ["paper_bankroll", "kelly_fraction", "max_stake_per_bet", "min_edge_threshold", "actualizado_en"]
+        fields = [
+            "paper_bankroll",
+            "kelly_fraction",
+            "max_stake_per_bet",
+            "min_edge_threshold",
+            "probabilidad_minima_seleccion",
+            "actualizado_en",
+        ]
         read_only_fields = ["actualizado_en"]
 
     def validate_paper_bankroll(self, value):
@@ -92,4 +107,9 @@ class ConfiguracionRiesgoSerializer(serializers.ModelSerializer):
     def validate_min_edge_threshold(self, value):
         if not (0 <= value < 1):
             raise serializers.ValidationError("El edge mínimo debe estar entre 0 (inclusive) y 1.")
+        return value
+
+    def validate_probabilidad_minima_seleccion(self, value):
+        if not (0 <= value < 1):
+            raise serializers.ValidationError("La probabilidad mínima debe estar entre 0 (inclusive) y 1.")
         return value

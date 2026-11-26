@@ -5,6 +5,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from db_models.models import Partido
+from trading_engine.combinador import generar_combinada
 from trading_engine.scanner import OddsScanner
 
 logger = logging.getLogger(__name__)
@@ -31,3 +32,16 @@ def scan_market_odds(minutes_ahead: int = 180) -> int:
         total_operaciones += len(operaciones)
 
     return total_operaciones
+
+
+@shared_task
+def generar_combinadas_pendientes(horas_adelante: int = 72) -> int:
+    """
+    Tarea periódica: arma una combinada (ver trading_engine/combinador.py) con
+    las patas de mayor probabilidad disponibles entre los value bets ya
+    detectados por scan_market_odds -- corre después del escaneo individual,
+    nunca antes (necesita que ya existan AnalisisPartido con recomendacion=
+    VALUE_BET para elegir entre ellos).
+    """
+    combinada = generar_combinada(horas_adelante=horas_adelante)
+    return 1 if combinada else 0

@@ -103,3 +103,16 @@ class ApiFootballClient:
     def get_odds(self, fixture_id: int) -> list[dict[str, Any]]:
         """Cuotas de referencia (útil como control cruzado, no como fuente de valor)."""
         return self._get("odds", {"fixture": fixture_id}).get("response", [])
+
+    def get_head_to_head(self, equipo_a_id: int, equipo_b_id: int) -> list[dict[str, Any]]:
+        """
+        Cruces históricos entre dos equipos, sin exigir `season` -- a diferencia de
+        `get_fixtures` (ventana de +-1 día) o `get_teams` (solo temporadas cerradas),
+        esta es la única vía conocida para recuperar el `fixture_id` real de partidos
+        YA JUGADOS de la temporada en curso en el plan gratuito (ver
+        HANDOFF_dataset_contexto.md, Tarea 1) -- necesaria porque los partidos
+        importados a mano vía import_historical_dataset nunca pasaron por la API y
+        no tienen fixture_id, y sin fixture_id no se puede pedir
+        get_fixture_statistics.
+        """
+        return self._get("fixtures/headtohead", {"h2h": f"{equipo_a_id}-{equipo_b_id}"}).get("response", [])

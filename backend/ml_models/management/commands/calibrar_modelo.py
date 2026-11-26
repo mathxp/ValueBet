@@ -16,7 +16,14 @@ from django.core.management.base import BaseCommand
 from db_models.models import AnalisisPartido
 from ml_models.pipelines.calibracion import calcular_reporte, pares_desde_analisis
 
-MERCADOS_A_AUDITAR = ["1X2", "OVER_UNDER_1.5", "OVER_UNDER_2.5", "OVER_UNDER_3.5", "OVER_UNDER_4.5"]
+MERCADOS_A_AUDITAR = [
+    "1X2",
+    "OVER_UNDER_0.5",
+    "OVER_UNDER_1.5",
+    "OVER_UNDER_2.5",
+    "OVER_UNDER_3.5",
+    "OVER_UNDER_4.5",
+]
 
 
 class Command(BaseCommand):

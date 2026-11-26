@@ -5,6 +5,13 @@
   padding: 22px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  /* Un Card es un item de un flex-column (.app-main, .predicciones-page, etc.) --
+     sin esto, una tabla ancha con celdas sin salto de línea de adentro empuja a
+     este contenedor (y a toda la cadena hacia arriba, incluido <body>) más ancho
+     que la pantalla, en vez de quedarse contenida en el scroll propio de la
+     tabla (.operations-table__scroll). Es el bug clásico de flexbox: min-width
+     por defecto es "auto" (= el contenido), no 0. */
+  min-width: 0;
 }
 
 .card:hover {
@@ -14,8 +21,10 @@
 
 .card__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 16px;
 }
 

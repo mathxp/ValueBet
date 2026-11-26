@@ -145,7 +145,15 @@ def _historial_finalizados(liga: str = "", hasta_fecha: datetime | None = None) 
         qs = qs.filter(liga=liga)
     if hasta_fecha is not None:
         qs = qs.filter(fecha_hora__lt=hasta_fecha)
-    return list(qs.select_related("equipo_local", "equipo_visitante")[:1000])
+    # Sin tope: calcular_ratings() ya se autolimita por equipo (MAX_PARTIDOS_POR_EQUIPO),
+    # pero factor_localia() promedia sobre TODO lo que devuelva esta función -- un
+    # tope acá (antes [:1000], sin ningún comentario que explicara el número) le
+    # cortaba en silencio las temporadas más viejas a medida que la liga acumulaba
+    # historial, sesgando la ventaja de local hacia solo las últimas temporadas sin
+    # que nada lo avisara (ver HANDOFF_dataset_contexto.md, sección 2.1: con el tope
+    # daba ~28.1%, sin tope y con las 5 temporadas completas da ~28.9%, más parecido
+    # a la medición independiente del handoff que a las cifras de prompt.md 3.3).
+    return list(qs.select_related("equipo_local", "equipo_visitante"))
 
 
 def calcular_ratings(liga: str = "", hasta_fecha: datetime | None = None) -> dict[int, RatingEquipo]:

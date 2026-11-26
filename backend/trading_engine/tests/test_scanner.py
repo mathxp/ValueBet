@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from db_models.models import AnalisisPartido, CalibracionMercado, Equipo, Operacion, Partido
+from db_models.models import AnalisisPartido, CalibracionMercado, ConfiguracionRiesgo, Equipo, Operacion, Partido
 from trading_engine.exchange_client import MarketPrice
 from trading_engine.scanner import OddsScanner
 
@@ -139,6 +139,40 @@ class OddsScannerTests(TestCase):
 
         self.assertEqual(Operacion.objects.count(), 1)
 
+    def test_vuelve_a_recomendar_si_la_operacion_anterior_ya_fue_descartada(self):
+        """Una Operacion DESCARTADA (a mano, o por el auto-retracto de arriba)
+        no debe bloquear una recomendación nueva para siempre -- si la señal
+        vuelve a calificar en un escaneo posterior (ej. la cuota se recuperó),
+        tiene que poder crear una Operacion nueva."""
+        CalibracionMercado.objects.create(mercado="1X2", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=3204)
+        vieja = Operacion.objects.create(
+            partido=self.partido,
+            mercado="1X2",
+            seleccion="LOCAL",
+            probabilidad_modelo=0.6,
+            cuota_apostada=Decimal("1.20"),
+            valor_esperado=0.15,
+            kelly_fraccion_usada=0.05,
+            stake=Decimal("10.00"),
+            estado=Operacion.Estado.DESCARTADA,
+        )
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="1X2",
+                seleccion="LOCAL",
+                precio_back=Decimal("1.20"),
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(len(operaciones), 1)
+        self.assertNotEqual(operaciones[0].id, vieja.id)
+        self.assertEqual(Operacion.objects.filter(mercado="1X2", seleccion="LOCAL").count(), 2)
+
     def test_dos_lineas_de_over_under_solo_genera_una_recomendacion(self):
         """Las líneas de Over/Under están correlacionadas -- el escáner debe
         quedarse solo con una, no recomendar las dos."""
@@ -212,6 +246,39 @@ class OddsScannerTests(TestCase):
         self.assertEqual(len(operaciones), 1)
         linea_esperada = min(lineas, key=lambda l: abs(float(l) - total_proyectado))
         self.assertEqual(operaciones[0].mercado, f"OVER_UNDER_{linea_esperada}")
+
+    def test_retracta_operacion_recomendada_que_ya_no_califica(self):
+        """Si una Operacion quedó RECOMENDADA en un escaneo anterior pero la
+        cuota actual ya no da valor (se movió, o ahora no pasa un umbral
+        nuevo), el escáner debe descartarla -- no dejarla mostrada como
+        vigente cuando el análisis más reciente ya no la respalda."""
+        CalibracionMercado.objects.create(mercado="1X2", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=3204)
+        operacion = Operacion.objects.create(
+            partido=self.partido,
+            mercado="1X2",
+            seleccion="VISITANTE",
+            probabilidad_modelo=0.4,
+            cuota_apostada=Decimal("3.000"),
+            valor_esperado=0.2,
+            kelly_fraccion_usada=0.05,
+            stake=Decimal("10.00"),
+            estado=Operacion.Estado.RECOMENDADA,
+        )
+        precios = [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="1X2",
+                seleccion="VISITANTE",
+                precio_back=Decimal("1.05"),  # ya no da valor -- ver test_cuota_ajustada_no_genera_value_bet
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(precios))
+        scanner.escanear_partido(self.partido)
+
+        operacion.refresh_from_db()
+        self.assertEqual(operacion.estado, Operacion.Estado.DESCARTADA)
 
     def test_1x2_sin_calibracion_no_genera_value_bet(self):
         """
@@ -310,3 +377,76 @@ class OddsScannerTests(TestCase):
 
         self.assertEqual(operaciones, [])
         self.assertFalse(Operacion.objects.filter(mercado="OVER_UNDER_4.5").exists())
+
+
+class ProbabilidadMinimaTests(TestCase):
+    """Un edge positivo no alcanza si la selección es demasiado incierta --
+    ver PROBABILIDAD_MINIMA_SELECCION en scanner.py: la idea explícita del
+    usuario es "tratar de acertar", no solo maximizar EV puro apostando a
+    selecciones que van a perder la mayoría de las veces."""
+
+    def setUp(self):
+        from datetime import timedelta
+
+        self.local = Equipo.objects.create(nombre="Parejo Local", api_football_id=98011)
+        self.visita = Equipo.objects.create(nombre="Parejo Visita", api_football_id=98012)
+
+        # Historial parejo (empates 1-1) -- el visitante queda con ~28% de
+        # probabilidad de ganar: un underdog real, no un caso extremo.
+        for i in range(10):
+            _crear_finalizado(self.local, self.visita, dias_atras=i + 1, gl=1, gv=1)
+
+        self.partido = Partido.objects.create(
+            equipo_local=self.local,
+            equipo_visitante=self.visita,
+            fecha_hora=timezone.now() + timedelta(days=1),
+            estado=Partido.Estado.PROGRAMADO,
+        )
+
+        from ml_models.tasks import project_xg_for_upcoming_matches
+
+        project_xg_for_upcoming_matches()
+        self.partido.refresh_from_db()
+
+        CalibracionMercado.objects.create(mercado="1X2", puntos=[[0.0, 0.0], [1.0, 1.0]], n_total=3204)
+
+    def _precio_visitante(self, cuota):
+        return [
+            MarketPrice(
+                market_id=str(self.partido.id),
+                mercado="1X2",
+                seleccion="VISITANTE",
+                # ~28% de probabilidad real -- a esta cuota da ~11% de edge,
+                # positivo y nada extremo (lejos de EDGE_MAXIMO_CONFIABLE).
+                precio_back=Decimal(cuota),
+                precio_lay=None,
+                volumen_disponible=None,
+            ),
+        ]
+
+    def test_edge_positivo_pero_probabilidad_baja_no_genera_value_bet(self):
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(self._precio_visitante("3.90")))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(operaciones, [])
+        analisis = AnalisisPartido.objects.get(partido=self.partido, mercado="1X2")
+        # NO_BET, no ANOMALIA -- el edge en sí es confiable, solo que es una
+        # selección de baja probabilidad para recomendarla sola.
+        self.assertEqual(analisis.recomendacion, AnalisisPartido.Recomendacion.NO_BET)
+        self.assertIn("probabilidad de acierto", analisis.motivo_no_bet.lower())
+        self.assertGreater(analisis.edge, 0)
+
+    def test_bajando_el_piso_configurado_la_misma_apuesta_si_se_recomienda(self):
+        """El piso es un parámetro de ConfiguracionRiesgo, editable desde el
+        dashboard -- confirma que de verdad lo lee de ahí, no que esté
+        hardcodeado."""
+        config = ConfiguracionRiesgo.actual()
+        config.probabilidad_minima_seleccion = 0.20
+        config.save()
+
+        scanner = OddsScanner(exchange_client=FakeExchangeClient(self._precio_visitante("3.90")))
+        operaciones = scanner.escanear_partido(self.partido)
+
+        self.assertEqual(len(operaciones), 1)
+        analisis = AnalisisPartido.objects.get(partido=self.partido, mercado="1X2")
+        self.assertEqual(analisis.recomendacion, AnalisisPartido.Recomendacion.VALUE_BET)

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import PartidoCell from "./PartidoCell";
 import StatusBadge from "./StatusBadge";
 import {
   aceptarOperacion,
@@ -132,7 +133,6 @@ export default function OperationsTable({ operaciones, onCambiarOperacion }) {
             <th>Stake sugerido</th>
             <th>PNL</th>
             <th>Estado</th>
-            <th>Fecha</th>
             {onCambiarOperacion && <th>Acciones</th>}
           </tr>
         </thead>
@@ -140,7 +140,7 @@ export default function OperationsTable({ operaciones, onCambiarOperacion }) {
           {operaciones.map((op) => (
             <tr key={op.id}>
               <td>
-                {op.partido?.equipo_local?.nombre} vs {op.partido?.equipo_visitante?.nombre}
+                <PartidoCell partido={op.partido} />
               </td>
               <td>
                 <div className="operations-table__apuesta">
@@ -157,15 +157,13 @@ export default function OperationsTable({ operaciones, onCambiarOperacion }) {
               </td>
               <td title={`Kelly fraccional ${formatPercent(op.kelly_fraccion_usada)}`}>
                 {formatCurrency(op.stake)}
-                <span className="operations-table__mercado"> ({formatPercent(op.kelly_fraccion_usada)} Kelly)</span>
               </td>
               <td className={Number(op.pnl) >= 0 ? "is-positive" : "is-negative"}>
                 {op.pnl !== null ? formatCurrency(op.pnl) : "-"}
               </td>
-              <td>
+              <td title={`Recomendada el ${formatDateTime(op.creado_en)}`}>
                 <StatusBadge estado={op.estado} />
               </td>
-              <td>{formatDateTime(op.creado_en)}</td>
               {onCambiarOperacion && (
                 <td>
                   <AccionesOperacion operacion={op} onCambiar={onCambiarOperacion} />

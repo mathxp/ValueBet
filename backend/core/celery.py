@@ -34,4 +34,8 @@ app.conf.beat_schedule = {
         "task": "ml_models.tasks.reconciliar_analisis",
         "schedule": crontab(minute=45),
     },
+    "generar-combinadas-cada-15-minutos": {
+        "task": "trading_engine.tasks.generar_combinadas_pendientes",
+        "schedule": crontab(minute="10,25,40,55"),
+    },
 }

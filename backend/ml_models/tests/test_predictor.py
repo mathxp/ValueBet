@@ -91,3 +91,47 @@ class MatchPredictorTests(TestCase):
         prob = MatchPredictor().predecir_probabilidad_over(partido, 2.5)
         self.assertGreater(prob, 0.0)
         self.assertLess(prob, 1.0)
+
+
+class DobleOportunidadTests(TestCase):
+    def setUp(self):
+        self.local = Equipo.objects.create(nombre="DO Local", api_football_id=91003)
+        self.visita = Equipo.objects.create(nombre="DO Visita", api_football_id=91004)
+
+    def _crear_partido(self, metricas):
+        return Partido.objects.create(
+            equipo_local=self.local,
+            equipo_visitante=self.visita,
+            fecha_hora=timezone.now() + timedelta(days=1),
+            metricas_avanzadas=metricas,
+        )
+
+    def test_sin_datos_retorna_none(self):
+        partido = self._crear_partido({})
+        self.assertIsNone(MatchPredictor().predecir_probabilidad_doble_oportunidad(partido, "1X"))
+
+    def test_es_exactamente_la_suma_de_las_dos_probabilidades_1x2(self):
+        """Doble Oportunidad no se estima aparte -- es la suma exacta de dos
+        resultados de 1X2 mutuamente excluyentes, no una aproximación."""
+        partido = self._crear_partido({"xg_local": 1.8, "xg_visitante": 0.9})
+        predictor = MatchPredictor()
+
+        prob_1x = predictor.predecir_probabilidad_doble_oportunidad(partido, "1X")
+        prob_local = predictor.predecir_probabilidad_1x2(partido, "LOCAL")
+        prob_empate = predictor.predecir_probabilidad_1x2(partido, "EMPATE")
+        self.assertAlmostEqual(prob_1x, prob_local + prob_empate, places=9)
+
+    def test_las_tres_selecciones_sumadas_dan_el_doble_de_uno(self):
+        """1X + 12 + X2 = (L+E) + (L+V) + (E+V) = 2*(L+E+V) = 2 -- cada
+        resultado del 1X2 aparece en exactamente dos de las tres selecciones."""
+        partido = self._crear_partido({"xg_local": 1.3, "xg_visitante": 1.1})
+        predictor = MatchPredictor()
+
+        total = sum(
+            predictor.predecir_probabilidad_doble_oportunidad(partido, sel) for sel in ("1X", "12", "X2")
+        )
+        self.assertAlmostEqual(total, 2.0, places=3)
+
+    def test_seleccion_invalida_retorna_none(self):
+        partido = self._crear_partido({"xg_local": 1.5, "xg_visitante": 1.0})
+        self.assertIsNone(MatchPredictor().predecir_probabilidad_doble_oportunidad(partido, "ZZ"))

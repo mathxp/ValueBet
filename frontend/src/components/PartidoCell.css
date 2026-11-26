@@ -1,0 +1,26 @@
+.partido-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+}
+
+.partido-cell__crest {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  padding: 2px;
+}
+
+.team-crest-fallback.partido-cell__crest {
+  font-size: 8px;
+}
+
+.partido-cell__vs {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}

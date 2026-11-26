@@ -81,14 +81,24 @@ estimación. La fuente de esos partidos son:
    `manage.py import_excel_dataset`).
 4. Un dataset Excel con las temporadas 2022 y 2023 completas
    (`data_ingestion/historical_datasets/liga_chile_2022_2023.xlsx`,
-   `manage.py import_excel_dataset_2022_2023`) — más de 1100 partidos en total entre las cinco
-   temporadas. Tres equipos de esas temporadas ya descendidos (Curicó Unido, Deportes Antofagasta,
-   Magallanes) quedaron sin `api_football_id` confirmado (la cuota diaria gratuita de api-football
-   ya estaba agotada al importar este dataset) -- **pendiente**: si alguno vuelve a Primera y
-   aparece en un fixture en vivo, `data_ingestion/tasks.py:_get_or_create_equipo` matchea
-   estrictamente por `api_football_id` (no por nombre), así que crearía un `Equipo` duplicado en
-   vez de reusar el existente. Conviene completar el id real de esos tres (`GET /teams?search=...`)
-   antes de que eso pase.
+   `manage.py import_excel_dataset_2022_2023`) — más de 1130 partidos en total entre las cinco
+   temporadas (2022-2026).
+
+   De los tres equipos ya descendidos que en su momento quedaron sin `api_football_id`
+   confirmado, dos ya lo tienen (Curicó Unido, Magallanes) -- solo **Deportes Antofagasta sigue
+   pendiente**. Si vuelve a Primera y aparece en un fixture en vivo,
+   `data_ingestion/tasks.py:_get_or_create_equipo` matchea estrictamente por `api_football_id`
+   (no por nombre), así que crearía un `Equipo` duplicado en vez de reusar el existente. Conviene
+   completar su id real (`GET /teams?search=...`) antes de que eso pase.
+
+   Aparte, `data_ingestion/historical_datasets/liga_chile_contexto_2022_2026.xlsx`
+   (`manage.py importar_contexto_partidos`) agrega sede/ciudad/altitud por club
+   (`Equipo.metadata["sede"]`) y contexto por partido -- distancia de viaje, derbi, altitud,
+   descanso -- (`Partido.metricas_avanzadas["contexto_2022_2026"]`, 1122/1128 partidos cargados).
+   Es **contexto informativo únicamente**: no toca `calcular_ratings()` ni `proyectar_xg()` hasta
+   que alguno de esos factores pase por la auditoría de la sección 10 (ver
+   `HANDOFF_dataset_contexto.md` en la raíz del repo para el detalle completo, incluidas
+   correlaciones crudas de viaje y altura que todavía no se validaron contra backtest).
 
 ### 3.2 Regularización (shrinkage)
 
@@ -101,12 +111,36 @@ acerca más al promedio general.
 
 ### 3.3 Ventaja de localía
 
-Medido con datos reales: los locales en esta liga anotan ~35-38% más goles que los visitantes
-(confirmado con ambas muestras, la de 170 y la de 649 partidos — el número no cambió, lo que
-valida que es un efecto real y no ruido). El modelo aplica un factor de ajuste global
-(`_factor_localia()`) sobre la proyección de ataque según si el equipo juega de local o de visita
-— no se separan los ratings de ataque/defensa por localía por equipo individual porque, con el
-volumen de datos actual, eso dejaría muestras demasiado chicas por equipo para ser confiables.
+Medido con datos reales sobre las cinco temporadas completas (2022-2026, 1137 partidos): los
+locales anotan en promedio **28,9% más goles** que los visitantes -- no el 35-38% que decía esta
+sección antes. Esa cifra vieja salió de mirar solo 2025 y 2026 (dos temporadas altas, 41,4% y
+34,9%), y la lectura de "no cambió entre dos muestras" fue un artefacto de comparar dos
+temporadas parecidas entre sí, no evidencia real de estabilidad. Con las cinco:
+
+| Temporada | GF local | GF visita | Ventaja |
+|---|---|---|---|
+| 2022 | 1,488 | 1,079 | +37,8% |
+| 2023 | 1,425 | 1,300 | +9,6% |
+| 2024 | 1,540 | 1,222 | +26,0% |
+| 2025 | 1,550 | 1,096 | +41,4% |
+| 2026 (parcial) | 1,652 | 1,225 | +34,9% |
+| **Global** | 1,524 | 1,182 | **+28,9%** |
+
+Se mueve entre +9,6% y +41,4% de una temporada a otra -- **la variancia año a año es en sí misma
+el hallazgo**, no ruido a ignorar. `_factor_localia()` no tiene este número escrito a mano en
+ningún lado: lo recalcula de `Partido.resultado` real cada vez que se llama, así que ya refleja
+las cinco temporadas automáticamente. Sí tenía un bug real hasta hace poco -- `_historial_finalizados()`
+cortaba en los 1000 partidos finalizados más recientes sin avisar (contradecía su propio
+docstring, que decía "se usa todo el historial disponible"), lo que iba a sesgar este número hacia
+las temporadas más nuevas a medida que la liga acumulara más historial. Ya se sacó el tope (ver
+`ml_models/pipelines/team_ratings.py`, con test de regresión en `test_team_ratings.py`).
+
+El modelo aplica esto como un factor de ajuste global (`_factor_localia()`) sobre la proyección de
+ataque según si el equipo juega de local o de visita -- no se separan los ratings de ataque/defensa
+por localía por equipo individual porque, con el volumen de datos actual, eso dejaría muestras
+demasiado chicas por equipo para ser confiables. Detalle completo de esta medición, y otras
+correlaciones crudas todavía sin validar (distancia de viaje, altura, descanso), en
+`HANDOFF_dataset_contexto.md`.
 
 ### 3.4 Proyección final y probabilidades
 

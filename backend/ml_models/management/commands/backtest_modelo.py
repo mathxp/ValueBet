@@ -31,7 +31,7 @@ from ml_models.pipelines.team_ratings import proyectar_xg
 from trading_engine.risk_manager import evaluar_apuesta
 
 PRIOR_BASELINE = {"LOCAL": 0.45, "EMPATE": 0.27, "VISITANTE": 0.28}
-LINEAS_OVER_UNDER_AUDITADAS = ["1.5", "2.5", "3.5", "4.5"]
+LINEAS_OVER_UNDER_AUDITADAS = ["0.5", "1.5", "2.5", "3.5", "4.5"]
 BANKROLL_SIMULADO = Decimal("1000")
 
 
@@ -166,7 +166,7 @@ class Command(BaseCommand):
                     continue
                 self.stdout.write(f"    {bucket.rango:>8}: n={bucket.n:<4} predicho={bucket.prob_promedio:.1%}  real={bucket.frecuencia_real:.1%}")
 
-        self.stdout.write("\n=== Over/Under por línea (incluye 4.5 para auditar por qué se sacó) ===")
+        self.stdout.write("\n=== Over/Under por línea (incluye 4.5 solo para auditar por qué se sacó) ===")
         reportes_over_under = {}
         for linea in LINEAS_OVER_UNDER_AUDITADAS:
             reporte_linea = calcular_reporte(f"OVER_UNDER_{linea}", pares_over_under[linea])

@@ -16,11 +16,17 @@ logger = logging.getLogger(__name__)
 # api-football usa "Match Winner" para el mercado 1X2, con valores en inglés.
 _SELECCION_POR_VALOR = {"Home": "LOCAL", "Draw": "EMPATE", "Away": "VISITANTE"}
 
+# "Double Chance" de api-football -- "Home/Draw"=1X, "Home/Away"=12, "Draw/Away"=X2.
+_SELECCION_DOBLE_OPORTUNIDAD_POR_VALOR = {"Home/Draw": "1X", "Home/Away": "12", "Draw/Away": "X2"}
+
 # Líneas de Over/Under a considerar: las más líquidas (más apostadas, precios
 # más ajustados) y donde el modelo de Poisson es menos sensible a un pequeño
 # error en la proyección de xG. Las líneas extremas (0.5, 5.5+) casi no se
 # ofrecen en la práctica y ahí un error chico en el xG cambia mucho la
-# probabilidad de la cola -- se descartan por poco confiables.
+# probabilidad de la cola -- por eso se tratan con el mismo cuidado que 4.5:
+# nunca se recomiendan "a ojo", solo si tienen su propia curva de calibración
+# medida contra resultados reales (ver manage.py backtest_modelo
+# --guardar-calibracion y CalibracionMercado en trading_engine/scanner.py).
 #
 # 4.5 se sacó de la lista (antes estaba) tras verificar en la práctica que el
 # proyector de xG (team_ratings.py:proyectar_xg) puede llegar a un total
@@ -32,7 +38,12 @@ _SELECCION_POR_VALOR = {"Home": "LOCAL", "Draw": "EMPATE", "Away": "VISITANTE"}
 # (2.7 goles/partido) -- no vale la pena confiar ahí en una interacción
 # multiplicativa que ninguno de los dos equipos respalda con su propio
 # historial de gol.
-LINEAS_OVER_UNDER_VALIDAS = {"1.5", "2.5", "3.5"}
+#
+# 0.5 se agregó a pedido del usuario (quiere ver más líneas de goles cuando
+# de verdad sean una apuesta buena) -- se habilita la ingesta de cuotas acá,
+# pero el gate de calibración es el que decide si alguna vez se recomienda de
+# verdad en vivo, exactamente igual que cualquier otro mercado.
+LINEAS_OVER_UNDER_VALIDAS = {"0.5", "1.5", "2.5", "3.5"}
 
 # Códigos de estado de fixture de api-football -> nuestro Partido.Estado.
 _ESTADO_POR_CODIGO = {
@@ -195,8 +206,8 @@ def _primer_bookmaker_con_mercado(bookmakers: list[dict], nombre_mercado: str) -
 @shared_task
 def fetch_and_store_odds(partido_id: int) -> int:
     """
-    Guarda un snapshot de cuotas 1X2 y de goles totales (Over/Under) en
-    HistorialCuotas para un partido.
+    Guarda un snapshot de cuotas 1X2, Doble Oportunidad y goles totales
+    (Over/Under) en HistorialCuotas para un partido.
 
     api-football (incluso en plan gratuito) da cuotas de casas de apuestas
     tradicionales (William Hill, Bet365, etc.), no de un exchange -- sirven
@@ -230,6 +241,22 @@ def fetch_and_store_odds(partido_id: int) -> int:
                 partido=partido,
                 origen=origen,
                 mercado="1X2",
+                seleccion=seleccion,
+                cuota_back=value["odd"],
+            )
+            guardados += 1
+
+    doble_oportunidad = _primer_bookmaker_con_mercado(bookmakers, "Double Chance")
+    if doble_oportunidad:
+        bet, origen = doble_oportunidad
+        for value in bet["values"]:
+            seleccion = _SELECCION_DOBLE_OPORTUNIDAD_POR_VALOR.get(value["value"])
+            if not seleccion:
+                continue
+            HistorialCuotas.objects.create(
+                partido=partido,
+                origen=origen,
+                mercado="DOBLE_OPORTUNIDAD",
                 seleccion=seleccion,
                 cuota_back=value["odd"],
             )

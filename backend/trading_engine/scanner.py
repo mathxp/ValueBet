@@ -52,15 +52,29 @@ class OddsScanner:
         # probabilidad cruda, -18% ya calibrada) para cualquier mercado, no
         # sólo Over/Under.
         self.mercados_calibrados = set(CalibracionMercado.objects.values_list("mercado", flat=True))
+        # Doble Oportunidad no tiene (ni necesita) su propia curva de
+        # calibración: cada selección es la suma exacta de dos probabilidades
+        # de 1X2 ya calibradas (ver MatchPredictor.predecir_probabilidad_doble_oportunidad),
+        # así que hereda el estado de calibración de 1X2 en vez de quedar
+        # bloqueada como "mercado sin validar" hasta backtestearla aparte.
+        self.doble_oportunidad_calibrada = "1X2" in self.mercados_calibrados
 
     def _market_id_for(self, partido: Partido) -> str:
         return partido.metricas_avanzadas.get("betfair_market_id") or str(partido.id)
 
+    def _mercado_calibrado(self, mercado: str) -> bool:
+        if mercado == "DOBLE_OPORTUNIDAD":
+            return self.doble_oportunidad_calibrada
+        return mercado in self.mercados_calibrados
+
     def _probabilidad_para(self, partido: Partido, mercado: str, seleccion: str) -> float | None:
-        """Probabilidad del modelo para una selección, sea del mercado 1X2 o de
-        Over/Under de goles totales (mercado="OVER_UNDER_2.5", etc.)."""
+        """Probabilidad del modelo para una selección, sea del mercado 1X2, Doble
+        Oportunidad, o de Over/Under de goles totales (mercado="OVER_UNDER_2.5", etc.)."""
         if mercado == "1X2":
             return self.predictor.predecir_probabilidad_1x2(partido, seleccion)
+
+        if mercado == "DOBLE_OPORTUNIDAD":
+            return self.predictor.predecir_probabilidad_doble_oportunidad(partido, seleccion)
 
         if mercado.startswith("OVER_UNDER_"):
             linea = float(mercado.removeprefix("OVER_UNDER_"))
@@ -276,7 +290,11 @@ class OddsScanner:
 
         operaciones_creadas = []
         for precio, evaluacion in candidatos.values():
-            sin_calibracion = precio.mercado not in self.mercados_calibrados
+            sin_calibracion = not self._mercado_calibrado(precio.mercado)
+
+            probabilidad_insuficiente = (
+                evaluacion.probabilidad_modelo < self.config_riesgo.probabilidad_minima_seleccion
+            )
 
             es_value_bet = (
                 evaluacion.es_apuesta_de_valor
@@ -284,6 +302,7 @@ class OddsScanner:
                 and data_quality >= MIN_DATA_QUALITY_SCORE
                 and confidence >= MIN_CONFIDENCE_SCORE
                 and not sin_calibracion
+                and not probabilidad_insuficiente
             )
 
             if es_value_bet:
@@ -318,6 +337,19 @@ class OddsScanner:
             elif evaluacion.valor_esperado <= 0:
                 recomendacion = AnalisisPartido.Recomendacion.NO_BET
                 motivo = "Valor esperado negativo o nulo."
+            elif probabilidad_insuficiente:
+                # NO_BET, no ANOMALIA: el edge en sí es válido y confiable, solo
+                # que es una selección de baja probabilidad -- no se recomienda
+                # SOLA porque perdería la mayoría de las veces, aunque a la
+                # larga sea rentable. Si el mismo partido tiene una versión más
+                # segura de la misma señal (ej. Doble Oportunidad en vez de
+                # 1X2 a secas), esa sigue evaluándose y recomendándose aparte.
+                recomendacion = AnalisisPartido.Recomendacion.NO_BET
+                motivo = (
+                    f"Probabilidad de acierto ({evaluacion.probabilidad_modelo:.1%}) por debajo del "
+                    f"piso configurado ({self.config_riesgo.probabilidad_minima_seleccion:.0%}): hay "
+                    "edge real, pero perdería la mayoría de las veces -- no se recomienda sola."
+                )
             else:
                 recomendacion = AnalisisPartido.Recomendacion.NO_BET
                 motivo = "Edge inferior al umbral mínimo configurado."
@@ -325,7 +357,7 @@ class OddsScanner:
             # Para el Value Score: todo mercado (1X2 u Over/Under) depende de
             # tener una curva de calibración medida contra resultados reales
             # (mismo criterio que sin_calibracion).
-            calibrado = precio.mercado in self.mercados_calibrados
+            calibrado = self._mercado_calibrado(precio.mercado)
 
             self._registrar_analisis(
                 partido=partido,
@@ -346,13 +378,34 @@ class OddsScanner:
             )
 
             if not es_value_bet:
+                # Si una Operacion para esta misma selección seguía vigente
+                # (RECOMENDADA) de un escaneo anterior pero ya no califica --
+                # cambió la cuota, o ahora no pasa un umbral nuevo como el
+                # piso de probabilidad -- hay que retractarla, no dejarla
+                # mostrada como recomendación activa cuando el análisis más
+                # reciente ya no la respalda.
+                Operacion.objects.filter(
+                    partido=partido,
+                    mercado=precio.mercado,
+                    seleccion=precio.seleccion,
+                    estado=Operacion.Estado.RECOMENDADA,
+                ).update(estado=Operacion.Estado.DESCARTADA)
                 continue
 
             # Una recomendación por selección/mercado por partido -- el
             # escaneo corre cada 30s (ver core/celery.py) y no queremos
             # spamear la misma señal una y otra vez mientras siga vigente.
+            # Solo bloquea si hay una ACTIVA (RECOMENDADA/ACEPTADA): una
+            # DESCARTADA/GANADA/PERDIDA/ANULADA no debe impedir que se cree
+            # una recomendación nueva si la señal vuelve a calificar más
+            # adelante (ej. la cuota bajó momentáneamente y el auto-retracto
+            # de arriba la descartó, pero después se recuperó) -- si no,
+            # queda bloqueada para siempre aunque vuelva a tener valor real.
             ya_existe = Operacion.objects.filter(
-                partido=partido, mercado=precio.mercado, seleccion=precio.seleccion
+                partido=partido,
+                mercado=precio.mercado,
+                seleccion=precio.seleccion,
+                estado__in=[Operacion.Estado.RECOMENDADA, Operacion.Estado.ACEPTADA],
             ).exists()
             if ya_existe:
                 continue

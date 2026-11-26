@@ -3,9 +3,9 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import "./App.css";
 import logoMark from "./assets/logo-mark.png";
 import Configuracion from "./pages/Configuracion";
+import Dashboard from "./pages/Dashboard";
 import Equipos from "./pages/Equipos";
 import Predicciones from "./pages/Predicciones";
-import Recomendaciones from "./pages/Recomendaciones";
 
 function IconoIndicador() {
   return (
@@ -27,10 +27,13 @@ function IconoEquipos() {
   );
 }
 
-function IconoRecomendaciones() {
+function IconoDashboard() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      <rect x="3" y="3" width="7" height="9" rx="1" />
+      <rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" />
+      <rect x="3" y="16" width="7" height="5" rx="1" />
     </svg>
   );
 }
@@ -68,13 +71,13 @@ export default function App() {
             <IconoIndicador />
             <span>Predicciones</span>
           </NavLink>
+          <NavLink to="/dashboard">
+            <IconoDashboard />
+            <span>Dashboard</span>
+          </NavLink>
           <NavLink to="/equipos">
             <IconoEquipos />
             <span>Equipos</span>
-          </NavLink>
-          <NavLink to="/recomendaciones">
-            <IconoRecomendaciones />
-            <span>Recomendaciones</span>
           </NavLink>
           <NavLink to="/configuracion">
             <IconoConfiguracion />
@@ -91,8 +94,8 @@ export default function App() {
         <main className="app-main">
           <Routes>
             <Route path="/" element={<Predicciones />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/equipos" element={<Equipos />} />
-            <Route path="/recomendaciones" element={<Recomendaciones />} />
             <Route path="/configuracion" element={<Configuracion />} />
           </Routes>
         </main>

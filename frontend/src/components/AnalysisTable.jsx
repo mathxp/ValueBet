@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import AnalisisDetalle from "./AnalisisDetalle";
 import Modal from "./Modal";
+import PartidoCell from "./PartidoCell";
 import { formatDateTime, formatMercado, formatPercent, formatSeleccion, nivelConfianza } from "../utils/format";
 import "./AnalysisTable.css";
 
@@ -53,7 +54,7 @@ export default function AnalysisTable({ analisis }) {
               title="Ver por qué (o por qué no) esta apuesta"
             >
               <td>
-                {a.partido?.equipo_local?.nombre} vs {a.partido?.equipo_visitante?.nombre}
+                <PartidoCell partido={a.partido} />
               </td>
               <td>
                 <div className="operations-table__apuesta">

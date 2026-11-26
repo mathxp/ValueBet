@@ -87,6 +87,17 @@ class ConstruirCurvaCalibracionTests(SimpleTestCase):
         self.assertIsNotNone(curva)
         self.assertEqual(len(curva), 2)
 
+    def test_un_solo_bucket_confiable_tambien_arma_curva(self):
+        """Caso real: Over/Under 0.5 -- casi todos los partidos proyectan
+        probabilidad alta, así que todos los casos reales caen en el mismo
+        bucket. No es falta de muestra (acá hay 50), es que la variable casi
+        no tiene rango donde repartirse -- un solo punto bien medido sigue
+        siendo evidencia real, no una corrección inventada."""
+        pares = [(0.93, 1) for _ in range(47)] + [(0.93, 0) for _ in range(3)]
+        curva = construir_curva_calibracion(pares, min_n=10)
+        self.assertIsNotNone(curva)
+        self.assertEqual(len(curva), 1)
+
 
 class AplicarCalibracionTests(SimpleTestCase):
     def test_sin_curva_retorna_la_probabilidad_cruda(self):

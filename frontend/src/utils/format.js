@@ -22,9 +22,15 @@ export function formatOdds(value) {
 }
 
 const SELECCION_1X2 = { LOCAL: "Gana local", EMPATE: "Empate", VISITANTE: "Gana visitante" };
+const SELECCION_DOBLE_OPORTUNIDAD = {
+  "1X": "Local o empate",
+  "12": "Local o visitante",
+  X2: "Empate o visitante",
+};
 
 export function formatMercado(mercado) {
   if (mercado === "1X2") return "Resultado (1X2)";
+  if (mercado === "DOBLE_OPORTUNIDAD") return "Doble Oportunidad";
   if (mercado.startsWith("OVER_UNDER_")) {
     const linea = mercado.replace("OVER_UNDER_", "");
     return `Goles totales (línea ${linea})`;
@@ -34,6 +40,7 @@ export function formatMercado(mercado) {
 
 export function formatSeleccion(mercado, seleccion) {
   if (mercado === "1X2") return SELECCION_1X2[seleccion] ?? seleccion;
+  if (mercado === "DOBLE_OPORTUNIDAD") return SELECCION_DOBLE_OPORTUNIDAD[seleccion] ?? seleccion;
   if (mercado.startsWith("OVER_UNDER_")) {
     const linea = mercado.replace("OVER_UNDER_", "");
     return seleccion === "OVER" ? `Más de ${linea} goles` : `Menos de ${linea} goles`;
