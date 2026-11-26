@@ -227,6 +227,22 @@ class OperacionViewSet(viewsets.ModelViewSet):
         agregados["finalizadas"] = finalizadas
         agregados["minimo_requerido"] = minimo_para_comparar
         agregados["muestra_suficiente"] = finalizadas >= minimo_para_comparar
+
+        # ROI y marca sobre apuestas ya resueltas (las anuladas devuelven el stake).
+        resueltas = qs.filter(
+            estado__in=[Operacion.Estado.GANADA, Operacion.Estado.PERDIDA, Operacion.Estado.ANULADA]
+        )
+        apostado = resueltas.exclude(estado=Operacion.Estado.ANULADA).aggregate(t=Sum("stake"))["t"]
+        agregados["apostado"] = apostado
+        agregados["roi"] = float(agregados["pnl_total"] or 0) / float(apostado) if apostado else None
+        agregados["marca"] = {
+            "ganadas": ganadas,
+            "perdidas": finalizadas - ganadas,
+            "anuladas": resueltas.filter(estado=Operacion.Estado.ANULADA).count(),
+        }
+        # Últimos 10 resultados, del más antiguo al más reciente (para la "racha").
+        ultimas = list(resueltas.order_by("-actualizado_en").values_list("estado", flat=True)[:10])
+        agregados["racha"] = list(reversed(ultimas))
         return Response(agregados)
 
 

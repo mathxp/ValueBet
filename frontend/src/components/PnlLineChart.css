@@ -16,11 +16,28 @@
 .pnl-chart__baseline {
   stroke: var(--baseline);
   stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.pnl-chart__area-top {
+  stop-color: var(--brand-blue);
+  stop-opacity: 0.35;
+}
+
+.pnl-chart__area-bottom {
+  stop-color: var(--brand-blue);
+  stop-opacity: 0;
+}
+
+.pnl-chart__dot--ultimo {
+  fill: var(--brand-blue);
+  stroke: var(--surface-1);
+  filter: drop-shadow(0 0 6px var(--brand-blue));
 }
 
 .pnl-chart__line {
   stroke: var(--brand-blue);
-  stroke-width: 2.5;
+  stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

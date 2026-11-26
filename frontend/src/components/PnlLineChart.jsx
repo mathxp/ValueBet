@@ -10,9 +10,9 @@ const PADDING = { top: 16, right: 16, bottom: 24, left: 16 };
 export default function PnlLineChart({ points }) {
   const [hoverIndex, setHoverIndex] = useState(null);
 
-  const { path, scaleX, scaleY } = useMemo(() => {
+  const { path, area, scaleX, scaleY } = useMemo(() => {
     if (!points.length) {
-      return { path: "", scaleX: () => 0, scaleY: () => 0 };
+      return { path: "", area: "", scaleX: () => 0, scaleY: () => 0 };
     }
 
     const values = points.map((p) => p.value);
@@ -30,8 +30,10 @@ export default function PnlLineChart({ points }) {
     const path = points
       .map((p, i) => `${i === 0 ? "M" : "L"} ${scaleX(i).toFixed(1)} ${scaleY(p.value).toFixed(1)}`)
       .join(" ");
+    const y0 = scaleY(0).toFixed(1);
+    const area = `${path} L ${scaleX(points.length - 1).toFixed(1)} ${y0} L ${scaleX(0).toFixed(1)} ${y0} Z`;
 
-    return { path, scaleX, scaleY };
+    return { path, area, scaleX, scaleY };
   }, [points]);
 
   if (!points.length) {
@@ -63,6 +65,13 @@ export default function PnlLineChart({ points }) {
           setHoverIndex(nearest);
         }}
       >
+        <defs>
+          <linearGradient id="pnl-area" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" className="pnl-chart__area-top" />
+            <stop offset="100%" className="pnl-chart__area-bottom" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#pnl-area)" stroke="none" />
         <line
           x1={PADDING.left}
           x2={WIDTH - PADDING.right}
@@ -71,6 +80,14 @@ export default function PnlLineChart({ points }) {
           className="pnl-chart__baseline"
         />
         <path d={path} className="pnl-chart__line" fill="none" />
+        {!hovered && (
+          <circle
+            cx={scaleX(points.length - 1)}
+            cy={scaleY(points[points.length - 1].value)}
+            r="4.5"
+            className="pnl-chart__dot pnl-chart__dot--ultimo"
+          />
+        )}
         {hovered && (
           <>
             <line
