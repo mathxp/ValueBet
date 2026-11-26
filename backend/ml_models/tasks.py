@@ -5,7 +5,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from db_models.models import AnalisisPartido, Partido
-from ml_models.pipelines.team_ratings import proyectar_xg, rho_dixon_coles
+from ml_models.pipelines.team_ratings import LIGA_MODELO, proyectar_xg, rho_dixon_coles
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def project_xg_for_upcoming_matches(hours_ahead: int = 48) -> int:
         proyeccion = proyectar_xg(
             equipo_local_id=partido.equipo_local_id,
             equipo_visitante_id=partido.equipo_visitante_id,
-            liga=partido.liga,
+            liga=LIGA_MODELO,
         )
         if not proyeccion:
             continue
@@ -49,7 +49,7 @@ def project_xg_for_upcoming_matches(hours_ahead: int = 48) -> int:
         metricas["xg_local"] = xg_local
         metricas["xg_visitante"] = xg_visitante
         metricas["xg_fuente"] = "dixon_coles"
-        metricas["dc_rho"] = rho_dixon_coles(partido.liga)
+        metricas["dc_rho"] = rho_dixon_coles(LIGA_MODELO)
         partido.metricas_avanzadas = metricas
         partido.save(update_fields=["metricas_avanzadas", "actualizado_en"])
         actualizados += 1

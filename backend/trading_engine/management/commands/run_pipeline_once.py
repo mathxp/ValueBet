@@ -49,7 +49,7 @@ class Command(BaseCommand):
 
         # La proyección es local (sin API): se calcula para 2 semanas, así la
         # página de Pronósticos muestra la fecha completa y no solo las próximas 24h.
-        actualizados = project_xg_for_upcoming_matches(hours_ahead=max(horas, 24 * 14))
+        actualizados = project_xg_for_upcoming_matches(hours_ahead=max(horas, 24 * 21))
         self.stdout.write(f"xG proyectado para {actualizados} partido(s) (0 es normal si aún no hay historial)")
 
         operaciones = scan_market_odds(minutes_ahead=horas * 60)
@@ -65,3 +65,14 @@ class Command(BaseCommand):
 
         tablas = actualizar_tablas()
         self.stdout.write("Tablas de posiciones: " + ", ".join(f"{k}={v}" for k, v in tablas.items()))
+
+        # Historial de aciertos: foto de los próximos partidos + evaluar los jugados.
+        from ml_models.pronosticos import evaluar_registrados, registrar_proximos
+
+        self.stdout.write(f"Pronósticos registrados: {registrar_proximos()} · evaluados: {evaluar_registrados()}")
+
+        from trading_engine.notificaciones import avisar_pronosticos_seguros, avisar_value_bets
+
+        self.stdout.write(
+            f"Avisos Telegram: seguros={avisar_pronosticos_seguros()} value_bets={avisar_value_bets()}"
+        )

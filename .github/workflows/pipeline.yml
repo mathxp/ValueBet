@@ -4,6 +4,7 @@
 #
 # Secrets requeridos (GitHub -> Settings -> Secrets and variables -> Actions):
 #   DATABASE_URL, API_FOOTBALL_KEY
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (opcionales: avisos al celular)
 # Variable requerida (misma pantalla, pestaña "Variables"):
 #   PIPELINE_ENABLED = true   -> activarla recién al apagar la tarea de Windows,
 #                                para no correr el pipeline dos veces.
@@ -29,6 +30,8 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       DJANGO_DEBUG: "False"
       DJANGO_SECRET_KEY: pipeline-only-not-serving-http
       PYTHONIOENCODING: utf-8

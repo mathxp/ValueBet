@@ -15,5 +15,6 @@ urlpatterns = [
     path("config/", views.ConfiguracionView.as_view(), name="configuracion"),
     path("tablas/", views.TablasView.as_view(), name="tablas"),
     path("pronosticos/", views.PronosticosView.as_view(), name="pronosticos"),
+    path("pronosticos/historial/", views.HistorialPronosticosView.as_view(), name="pronosticos-historial"),
     path("", include(router.urls)),
 ]

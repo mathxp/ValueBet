@@ -22,6 +22,9 @@ ALIAS = {
     "la serena": "d la serena",
     "deportes la serena": "d la serena",
     "deportes concepcion": "concepcion",
+    "antofagasta": "deportes antofagasta",
+    "puerto montt": "deportes puerto montt",
+    "santa cruz": "deportes santa cruz",
 }
 
 

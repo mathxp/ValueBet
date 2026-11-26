@@ -54,6 +54,11 @@ PESO_XG_PROXY = 0.5
 # promedio real; uno con pocos se acerca más al promedio de la liga.
 K_SHRINKAGE = 8
 
+# Los ratings se ajustan con todos los partidos salvo copas (pocos partidos,
+# alineaciones alternativas); los partidos de copa se predicen con esos ratings.
+COPAS = ("Copa Chile", "Copa de la Liga")
+LIGA_MODELO = ""  # "" = todas las competiciones salvo COPAS
+
 
 def extraer_stats_equipo(stats_equipo: list[dict]) -> dict[str, float]:
     """Convierte el formato [{"type": .., "value": ..}] de api-football a un dict plano."""
@@ -167,11 +172,14 @@ def _historial_finalizados(liga: str = "", hasta_fecha: datetime | None = None) 
         return [
             p
             for p in _precargado
-            if (not liga or p.liga == liga) and (hasta_fecha is None or p.fecha_hora < hasta_fecha)
+            if (p.liga == liga if liga else p.liga not in COPAS)
+            and (hasta_fecha is None or p.fecha_hora < hasta_fecha)
         ]
     qs = Partido.objects.filter(estado=Partido.Estado.FINALIZADO).order_by("-fecha_hora")
     if liga:
         qs = qs.filter(liga=liga)
+    else:
+        qs = qs.exclude(liga__in=COPAS)
     if hasta_fecha is not None:
         qs = qs.filter(fecha_hora__lt=hasta_fecha)
     # Sin tope: calcular_ratings() ya se autolimita por equipo (MAX_PARTIDOS_POR_EQUIPO),

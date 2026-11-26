@@ -180,6 +180,10 @@ WATCHED_LEAGUES = [
     int(league_id) for league_id in config("WATCHED_LEAGUES", default="265", cast=Csv()) if league_id
 ]
 
+# Avisos por Telegram (opcional; ver trading_engine/notificaciones.py).
+TELEGRAM_BOT_TOKEN = config("TELEGRAM_BOT_TOKEN", default="")
+TELEGRAM_CHAT_ID = config("TELEGRAM_CHAT_ID", default="")
+
 # Betfair Exchange API (left blank until credentials are available).
 BETFAIR_APP_KEY = config("BETFAIR_APP_KEY", default="")
 BETFAIR_USERNAME = config("BETFAIR_USERNAME", default="")

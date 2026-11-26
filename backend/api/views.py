@@ -673,71 +673,31 @@ class TablasView(APIView):
 # --- Pronósticos: lo más probable de cada partido próximo ---------------------
 class PronosticosView(APIView):
     """
-    GET: para cada partido de liga de los próximos 14 días, las probabilidades
-    calibradas (ver ml_models/predictor.py) y el pronóstico más probable en
-    tres mercados simples: resultado (1X2), doble oportunidad y goles (±2.5).
-    No depende de que haya cuotas cargadas: sirve para "¿quién gana?", no para
-    buscar valor (eso sigue en las recomendaciones VALUE_BET).
+    GET: pronóstico de cada partido (liga y Copa Chile) de las próximas 3
+    semanas -- ver ml_models/pronosticos.py. Probabilidades calibradas y, si
+    hay cuotas, mezcladas con el mercado; más la simulación de 10.000 partidos.
     """
 
-    VENTANA_DIAS = 14
-
     def get(self, request):
-        from datetime import timedelta
-
-        from django.utils import timezone
-
-        from ml_models.predictor import MatchPredictor, simular_partido
-
-        ahora = timezone.now()
-        partidos = (
-            Partido.objects.filter(
-                estado=Partido.Estado.PROGRAMADO,
-                fecha_hora__gte=ahora,
-                fecha_hora__lte=ahora + timedelta(days=self.VENTANA_DIAS),
-            )
-            .select_related("equipo_local", "equipo_visitante")
-            .order_by("fecha_hora")
-        )
+        from ml_models.predictor import MatchPredictor
+        from ml_models.pronosticos import calcular_pronostico, proximos_partidos
 
         predictor = MatchPredictor()
         resultado = []
-        for partido in partidos:
-            goles = predictor.predecir_goles(partido)
-            if goles is None:
-                continue
-
-            combinadas = predictor.probabilidades_1x2_combinadas(partido)
-            if combinadas is None:
-                continue
-            p1x2, usa_mercado = combinadas
-            dobles = {"1X": p1x2["LOCAL"] + p1x2["EMPATE"], "X2": p1x2["EMPATE"] + p1x2["VISITANTE"], "12": p1x2["LOCAL"] + p1x2["VISITANTE"]}
-            p_over = predictor.predecir_probabilidad_over(partido, 2.5)
-
-            ganador = max(p1x2, key=p1x2.get)
-            # Doble oportunidad que cubre al favorito ("gana o empata"), no "12".
-            doble = {"LOCAL": "1X", "VISITANTE": "X2"}.get(ganador) or max(("1X", "X2"), key=dobles.get)
-            resultado.append(
-                {
-                    "partido": PartidoSerializer(partido).data,
-                    "simulacion": simular_partido(
-                        goles[0], goles[1], rho=partido.metricas_avanzadas.get("dc_rho", 0.0), semilla=partido.id
-                    ),
-                    "xg_local": round(goles[0], 2),
-                    "xg_visitante": round(goles[1], 2),
-                    "probabilidades": {k: round(v, 4) for k, v in p1x2.items()},
-                    "fuente": "modelo+mercado" if usa_mercado else "modelo",
-                    "pronostico": {"mercado": "1X2", "seleccion": ganador, "probabilidad": round(p1x2[ganador], 4)},
-                    "doble_oportunidad": {"mercado": "DOBLE_OPORTUNIDAD", "seleccion": doble, "probabilidad": round(dobles[doble], 4)},
-                    "goles": (
-                        {
-                            "mercado": "OVER_UNDER_2.5",
-                            "seleccion": "OVER" if p_over >= 0.5 else "UNDER",
-                            "probabilidad": round(max(p_over, 1 - p_over), 4),
-                        }
-                        if p_over is not None
-                        else None
-                    ),
-                }
-            )
+        for partido in proximos_partidos():
+            pron = calcular_pronostico(partido, predictor)
+            if pron:
+                resultado.append({"partido": PartidoSerializer(partido).data, **pron})
         return Response(resultado)
+
+
+class HistorialPronosticosView(APIView):
+    """GET: aciertos del modelo por fecha (PronosticoRegistrado) y resumen de la temporada."""
+
+    def get(self, request):
+        from django.utils import timezone
+
+        from ml_models.pronosticos import historial_por_fecha, resumen_temporada
+
+        temporada = str(timezone.localdate().year)
+        return Response({"fechas": historial_por_fecha(), "temporada": {"anio": temporada, **resumen_temporada(temporada)}})

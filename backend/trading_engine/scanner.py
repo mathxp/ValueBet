@@ -28,7 +28,7 @@ from ml_models.pipelines.quality import (
     calcular_data_quality_score,
     calcular_value_score,
 )
-from ml_models.pipelines.team_ratings import calcular_ratings
+from ml_models.pipelines.team_ratings import LIGA_MODELO, calcular_ratings
 from ml_models.predictor import MatchPredictor
 from trading_engine.exchange_client import ExchangeClient, get_exchange_client
 from trading_engine.risk_manager import evaluar_apuesta
@@ -134,7 +134,7 @@ class OddsScanner:
         """(data_quality_score, confidence_score, partidos_local, partidos_visitante)
         según el historial real detrás del rating de cada equipo. None si
         alguno de los dos no tiene rating."""
-        ratings = calcular_ratings(partido.liga)
+        ratings = calcular_ratings(LIGA_MODELO)
         local = ratings.get(partido.equipo_local_id)
         visitante = ratings.get(partido.equipo_visitante_id)
         if not local or not visitante:

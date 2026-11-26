@@ -604,3 +604,44 @@ class LogoEquipo(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+class PronosticoRegistrado(models.Model):
+    """
+    Foto del pronóstico de un partido tomada ANTES de que empiece (el pipeline
+    la actualiza mientras el partido no comienza y la congela al empezar).
+    Al terminar el partido se marca si acertó -- es el historial público de
+    "qué tan bien le fue al modelo" por fecha.
+
+    reconstruido=True: generado después, para partidos ya jugados, con el
+    modelo ajustado SOLO con partidos anteriores (sin datos del futuro).
+    """
+
+    partido = models.OneToOneField(Partido, on_delete=models.CASCADE, related_name="pronostico_registrado")
+    competicion = models.CharField(max_length=100)
+    etiqueta_fecha = models.CharField(max_length=100, help_text='Ej: "Fecha 29" o "Semifinal · ida"')
+
+    prob_local = models.FloatField()
+    prob_empate = models.FloatField()
+    prob_visitante = models.FloatField()
+    pick_1x2 = models.CharField(max_length=10)
+    pick_seguro = models.CharField(max_length=4, help_text="Doble oportunidad: 1X / X2 / 12")
+    prob_seguro = models.FloatField()
+    pick_goles = models.CharField(max_length=10, blank=True)
+    prob_goles = models.FloatField(null=True, blank=True)
+    fuente = models.CharField(max_length=20, default="modelo")
+    reconstruido = models.BooleanField(default=False)
+
+    acierto_1x2 = models.BooleanField(null=True, blank=True)
+    acierto_seguro = models.BooleanField(null=True, blank=True)
+    acierto_goles = models.BooleanField(null=True, blank=True)
+    notificado = models.BooleanField(default=False)
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-partido__fecha_hora"]
+
+    def __str__(self):
+        return f"{self.partido} -> {self.pick_1x2} / {self.pick_seguro}"
