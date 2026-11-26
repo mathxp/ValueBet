@@ -109,3 +109,11 @@ export const getTablas = () => api.get("tablas/").then((r) => r.data);
 export const getPronosticos = () => api.get("pronosticos/").then((r) => r.data);
 
 export const getHistorialPronosticos = () => api.get("pronosticos/historial/").then((r) => r.data);
+
+// --- Notificaciones -------------------------------------------------------
+export const getNotificaciones = () => api.get("notificaciones/").then((r) => r.data);
+export const marcarNotificacionesLeidas = () => api.post("notificaciones/").then((r) => r.data);
+export const getClavePush = () => api.get("push/").then((r) => r.data);
+export const suscribirPush = (suscripcion) => api.post("push/", suscripcion).then((r) => r.data);
+export const desuscribirPush = (endpoint) => api.delete("push/", { data: { endpoint } }).then((r) => r.data);
+export const enviarPushPrueba = () => api.post("push/prueba/").then((r) => r.data);

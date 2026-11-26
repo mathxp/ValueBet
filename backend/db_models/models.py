@@ -645,3 +645,48 @@ class PronosticoRegistrado(models.Model):
 
     def __str__(self):
         return f"{self.partido} -> {self.pick_1x2} / {self.pick_seguro}"
+
+
+class Notificacion(models.Model):
+    """Alerta del sistema (centro de notificaciones de la app + push). Ver trading_engine/notificaciones.py."""
+
+    class Tipo(models.TextChoices):
+        PRONOSTICO_SEGURO = "PRONOSTICO_SEGURO", "Pronóstico muy seguro"
+        VALUE_BET = "VALUE_BET", "Apuesta con valor"
+        RESULTADO_FECHA = "RESULTADO_FECHA", "Resultado de la fecha"
+        SISTEMA = "SISTEMA", "Sistema"
+
+    clave = models.CharField(max_length=120, unique=True, help_text="Evita duplicar la misma alerta")
+    tipo = models.CharField(max_length=30, choices=Tipo.choices)
+    titulo = models.CharField(max_length=150)
+    cuerpo = models.TextField(blank=True)
+    url = models.CharField(max_length=200, default="/")
+    leida = models.BooleanField(default=False)
+    creado_en = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-creado_en"]
+
+    def __str__(self):
+        return self.titulo
+
+
+class SuscripcionPush(models.Model):
+    """Dispositivo (navegador) suscrito a notificaciones push (Web Push / VAPID)."""
+
+    endpoint = models.URLField(max_length=600, unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=300, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.endpoint[:60]
+
+
+class ClaveVapid(models.Model):
+    """Par de claves VAPID para Web Push, generado automáticamente la primera vez (fila única)."""
+
+    publica = models.TextField()
+    privada = models.TextField()
+    creado_en = models.DateTimeField(auto_now_add=True)

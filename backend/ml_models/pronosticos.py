@@ -2,7 +2,7 @@
 Pronóstico "para humanos" de cada partido: lo más probable en resultado,
 doble oportunidad y goles, más la simulación Monte Carlo. Lo usan la API
 (/api/pronosticos/), el registro histórico de aciertos (PronosticoRegistrado)
-y los avisos por Telegram.
+y las notificaciones automáticas (trading_engine/notificaciones.py).
 """
 
 from __future__ import annotations

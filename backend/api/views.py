@@ -746,3 +746,91 @@ class CronPipelineView(APIView):
 
         threading.Thread(target=correr, daemon=True).start()
         return Response({"estado": "iniciado"}, status=202)
+
+
+# --- Notificaciones (centro de notificaciones + push) --------------------------
+class NotificacionesView(APIView):
+    """GET: últimas 30 notificaciones y cuántas no se han leído. POST: marca todas como leídas."""
+
+    def get(self, request):
+        from db_models.models import Notificacion
+
+        qs = Notificacion.objects.all()[:30]
+        return Response(
+            {
+                "no_leidas": Notificacion.objects.filter(leida=False).count(),
+                "items": [
+                    {
+                        "id": n.id,
+                        "tipo": n.tipo,
+                        "titulo": n.titulo,
+                        "cuerpo": n.cuerpo,
+                        "url": n.url,
+                        "leida": n.leida,
+                        "creado_en": n.creado_en,
+                    }
+                    for n in qs
+                ],
+            }
+        )
+
+    def post(self, request):
+        from db_models.models import Notificacion
+
+        Notificacion.objects.filter(leida=False).update(leida=True)
+        return Response({"no_leidas": 0})
+
+
+class PushView(APIView):
+    """
+    GET: clave pública VAPID (la genera la primera vez).
+    POST {endpoint, keys: {p256dh, auth}}: suscribe este dispositivo.
+    DELETE {endpoint}: lo desuscribe.
+    """
+
+    def get(self, request):
+        from trading_engine.notificaciones import claves_vapid
+
+        return Response({"clave_publica": claves_vapid().publica})
+
+    def post(self, request):
+        from db_models.models import SuscripcionPush
+
+        endpoint = request.data.get("endpoint")
+        keys = request.data.get("keys") or {}
+        if not endpoint or not keys.get("p256dh") or not keys.get("auth"):
+            return Response({"detail": "Suscripción incompleta."}, status=400)
+        SuscripcionPush.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={
+                "p256dh": keys["p256dh"],
+                "auth": keys["auth"],
+                "user_agent": request.headers.get("User-Agent", "")[:300],
+            },
+        )
+        return Response({"suscrito": True}, status=201)
+
+    def delete(self, request):
+        from db_models.models import SuscripcionPush
+
+        SuscripcionPush.objects.filter(endpoint=request.data.get("endpoint", "")).delete()
+        return Response({"suscrito": False})
+
+
+class PushPruebaView(APIView):
+    """POST: envía una notificación de prueba a todos los dispositivos suscritos."""
+
+    def post(self, request):
+        from django.utils import timezone
+
+        from db_models.models import Notificacion
+        from trading_engine.notificaciones import notificar
+
+        n = notificar(
+            f"prueba:{timezone.now().isoformat()}",
+            Notificacion.Tipo.SISTEMA,
+            "✅ Notificaciones activadas",
+            "Así te van a llegar los pronósticos seguros, las apuestas con valor y el resultado de cada fecha.",
+            "/",
+        )
+        return Response({"enviada": bool(n)})

@@ -71,8 +71,13 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Pronósticos registrados: {registrar_proximos()} · evaluados: {evaluar_registrados()}")
 
-        from trading_engine.notificaciones import avisar_pronosticos_seguros, avisar_value_bets
+        from trading_engine.notificaciones import (
+            avisar_pronosticos_seguros,
+            avisar_resultados_de_fecha,
+            avisar_value_bets,
+        )
 
         self.stdout.write(
-            f"Avisos Telegram: seguros={avisar_pronosticos_seguros()} value_bets={avisar_value_bets()}"
+            f"Notificaciones: seguros={avisar_pronosticos_seguros()} value_bets={avisar_value_bets()} "
+            f"fechas={avisar_resultados_de_fecha()}"
         )

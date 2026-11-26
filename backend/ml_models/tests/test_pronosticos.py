@@ -1,7 +1,6 @@
 from datetime import timedelta
-from unittest import mock
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 
 from db_models.models import Equipo, Partido, PronosticoRegistrado
@@ -56,30 +55,3 @@ class PronosticosTests(TestCase):
         self.assertTrue(reg.acierto_seguro)
         # 1-1 = 2 goles: acierta solo si el pick era "menos de 2.5"
         self.assertEqual(reg.acierto_goles, reg.pick_goles == "UNDER")
-
-
-class NotificacionesTests(TestCase):
-    def test_sin_configurar_no_hace_nada(self):
-        from trading_engine.notificaciones import avisar_pronosticos_seguros, enviar
-
-        with override_settings(TELEGRAM_BOT_TOKEN="", TELEGRAM_CHAT_ID=""):
-            self.assertFalse(enviar("hola"))
-            self.assertEqual(avisar_pronosticos_seguros(), 0)
-
-    def test_configurado_envia_y_marca_notificado(self):
-        from trading_engine.notificaciones import avisar_pronosticos_seguros
-
-        a = Equipo.objects.create(nombre="A", api_football_id=96001)
-        b = Equipo.objects.create(nombre="B", api_football_id=96002)
-        p = _partido(a, b, 0.5, estado=Partido.Estado.PROGRAMADO)
-        PronosticoRegistrado.objects.create(
-            partido=p, competicion="Liga", etiqueta_fecha="Fecha 1", prob_local=0.7, prob_empate=0.2,
-            prob_visitante=0.1, pick_1x2="LOCAL", pick_seguro="1X", prob_seguro=0.9,
-        )
-        with override_settings(TELEGRAM_BOT_TOKEN="t", TELEGRAM_CHAT_ID="c"), mock.patch(
-            "trading_engine.notificaciones.requests.post"
-        ) as post:
-            self.assertEqual(avisar_pronosticos_seguros(), 1)
-            self.assertEqual(avisar_pronosticos_seguros(), 0)  # no repite
-        self.assertEqual(post.call_count, 1)
-        self.assertIn("A o empate", post.call_args.kwargs["json"]["text"])

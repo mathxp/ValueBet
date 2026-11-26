@@ -3,6 +3,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import "./App.css";
 import logoMark from "./assets/logo.svg";
 import AvisoDespertando from "./components/AvisoDespertando";
+import Notificaciones from "./components/Notificaciones";
 import ThemeToggle from "./components/ThemeToggle";
 import Configuracion from "./pages/Configuracion";
 import Dashboard from "./pages/Dashboard";
@@ -78,6 +79,9 @@ export default function App() {
           <div className="app-sidebar__brand-text">
             <span className="app-sidebar__brand-name">ValueBet</span>
             <span className="app-sidebar__brand-tag">Pronósticos · Fútbol chileno</span>
+          </div>
+          <div className="app-sidebar__brand-acciones">
+            <Notificaciones />
           </div>
         </div>
 

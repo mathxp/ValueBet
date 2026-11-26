@@ -7,6 +7,7 @@
 .app-sidebar {
   position: sticky;
   top: 0;
+  z-index: 40; /* sticky crea su propia capa: sin esto el panel de notificaciones queda bajo el contenido */
   align-self: flex-start;
   height: 100vh;
   flex: 0 0 248px;
@@ -611,5 +612,15 @@
   50% {
     opacity: 0.25;
     transform: scale(0.7);
+  }
+}
+
+.app-sidebar__brand-acciones {
+  margin-left: auto;
+}
+
+@media (max-width: 860px) {
+  .app-sidebar__brand-acciones {
+    margin-left: 4px;
   }
 }
