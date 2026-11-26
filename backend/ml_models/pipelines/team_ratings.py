@@ -131,6 +131,29 @@ def _valor_ataque_defensa(partido: Partido, es_local: bool) -> tuple[float, floa
     return valor_favor, valor_contra
 
 
+# Historial precargado en memoria (ver `historial_precargado`): el backtest
+# evalúa ~1.200 partidos y, sin esto, descargaba el historial completo de la
+# base en cada uno (~3 s por partido contra Neon => ~1 hora).
+_precargado: list[Partido] | None = None
+
+
+class historial_precargado:
+    """Context manager: carga una vez los partidos finalizados y filtra en memoria."""
+
+    def __enter__(self):
+        global _precargado
+        _precargado = list(
+            Partido.objects.filter(estado=Partido.Estado.FINALIZADO)
+            .select_related("equipo_local", "equipo_visitante")
+            .order_by("-fecha_hora")
+        )
+        return self
+
+    def __exit__(self, *exc):
+        global _precargado
+        _precargado = None
+
+
 def _historial_finalizados(liga: str = "", hasta_fecha: datetime | None = None) -> list[Partido]:
     """
     `hasta_fecha`: si se da, solo considera partidos anteriores a esa fecha
@@ -140,6 +163,12 @@ def _historial_finalizados(liga: str = "", hasta_fecha: datetime | None = None) 
     todavía no existía (data leakage). En producción (hasta_fecha=None) se
     usa todo el historial disponible, que es lo que ya hacía esta función.
     """
+    if _precargado is not None:
+        return [
+            p
+            for p in _precargado
+            if (not liga or p.liga == liga) and (hasta_fecha is None or p.fecha_hora < hasta_fecha)
+        ]
     qs = Partido.objects.filter(estado=Partido.Estado.FINALIZADO).order_by("-fecha_hora")
     if liga:
         qs = qs.filter(liga=liga)

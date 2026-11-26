@@ -27,7 +27,7 @@ from data_ingestion.tasks import LINEAS_OVER_UNDER_VALIDAS
 from db_models.models import CalibracionMercado, HistorialCuotas, Partido, ResultadoBacktest
 from ml_models.pipelines.calibracion import calcular_reporte, construir_curva_calibracion
 from ml_models.predictor import distribucion_goles_totales, probabilidad_over, probabilidades_1x2_por_poisson
-from ml_models.pipelines.team_ratings import proyectar_xg, rho_dixon_coles
+from ml_models.pipelines.team_ratings import historial_precargado, proyectar_xg, rho_dixon_coles
 from trading_engine.risk_manager import evaluar_apuesta
 
 PRIOR_BASELINE = {"LOCAL": 0.45, "EMPATE": 0.27, "VISITANTE": 0.28}
@@ -59,6 +59,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        with historial_precargado():
+            self._handle(*args, **options)
+
+    def _handle(self, *args, **options):
         partidos = list(
             Partido.objects.filter(estado=Partido.Estado.FINALIZADO)
             .exclude(resultado={})
