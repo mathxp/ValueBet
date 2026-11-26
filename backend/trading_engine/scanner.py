@@ -135,8 +135,8 @@ class OddsScanner:
         según el historial real detrás del rating de cada equipo. None si
         alguno de los dos no tiene rating."""
         ratings = calcular_ratings(partido.liga)
-        local = ratings.get(partido.equipo_local.api_football_id)
-        visitante = ratings.get(partido.equipo_visitante.api_football_id)
+        local = ratings.get(partido.equipo_local_id)
+        visitante = ratings.get(partido.equipo_visitante_id)
         if not local or not visitante:
             return None
 
