@@ -157,7 +157,7 @@ def _historial_finalizados(liga: str = "", hasta_fecha: datetime | None = None) 
 
 
 def calcular_ratings(liga: str = "", hasta_fecha: datetime | None = None) -> dict[int, RatingEquipo]:
-    """Rating de ataque/defensa por equipo (api_football_id) a partir de goles reales."""
+    """Rating de ataque/defensa por equipo (pk de Equipo) a partir de goles reales."""
     partidos = _historial_finalizados(liga, hasta_fecha)
 
     por_equipo: dict[int, list[tuple[float, float]]] = {}
@@ -168,8 +168,11 @@ def calcular_ratings(liga: str = "", hasta_fecha: datetime | None = None) -> dic
         if goles_local is None or goles_visitante is None:
             continue
 
-        local_id = partido.equipo_local.api_football_id
-        visitante_id = partido.equipo_visitante.api_football_id
+        # Clave = pk de Equipo, NO api_football_id: hay equipos sin id de
+        # api-football (importados de datasets o ESPN) y todos compartían la
+        # clave None, mezclando sus ratings.
+        local_id = partido.equipo_local_id
+        visitante_id = partido.equipo_visitante_id
 
         por_equipo.setdefault(local_id, [])
         por_equipo.setdefault(visitante_id, [])
@@ -234,34 +237,157 @@ def factor_localia(liga: str = "", hasta_fecha: datetime | None = None) -> tuple
     return promedio_local / promedio_general, promedio_visita / promedio_general
 
 
+# --------------------------------------------------------------------------
+# Modelo Dixon-Coles (en producción desde nov-2026)
+#
+# Backtest cronológico sin leakage, 689 partidos de 2024-2026:
+#                          log loss 1X2   Brier    RPS     log loss O/U 2.5
+#   promedios últimos 15      1.0284      0.6170  0.2236        0.7027
+#   Dixon-Coles (este)        1.0192      0.6109  0.2212        0.6906
+# Mejoras respecto al promedio simple:
+#   * ataque/defensa ajustados por la calidad del rival (máxima verosimilitud
+#     Poisson): golear al último no vale lo mismo que golear al líder;
+#   * pesos por recencia (vida media de 180 días) en vez de un corte duro de
+#     15 partidos;
+#   * corrección rho de Dixon-Coles para marcadores bajos (0-0, 1-0, 0-1, 1-1).
+# Probado y descartado: covariable de viaje largo del visitante y sumar
+# incertidumbre del rating (binomial negativa) -- ambas empeoraron el backtest.
+# --------------------------------------------------------------------------
+VIDA_MEDIA_DIAS = 180
+PRIOR_PARTIDOS = 12  # pseudo-partidos que tiran cada rating hacia el promedio (shrinkage)
+ITERACIONES_AJUSTE = 40
+_cache_modelo: dict = {}
+
+
+@dataclass
+class ModeloDixonColes:
+    indice: dict
+    ataque: object  # np.ndarray
+    defensa: object
+    partidos: object
+    localia: float
+    mu: float
+    rho: float
+
+    def xg(self, local_id: int, visitante_id: int) -> tuple[float, float] | None:
+        i, j = self.indice.get(local_id), self.indice.get(visitante_id)
+        if i is None or j is None:
+            return None
+        if self.partidos[i] < MIN_PARTIDOS_PARA_RATING or self.partidos[j] < MIN_PARTIDOS_PARA_RATING:
+            return None
+        xg_local = self.mu * self.localia * self.ataque[i] * self.defensa[j]
+        xg_visitante = self.mu * self.ataque[j] * self.defensa[i]
+        return float(xg_local), float(xg_visitante)
+
+
+def _ajustar_rho(lam_h, lam_a, goles_h, goles_a, pesos) -> float:
+    """rho de Dixon-Coles por máxima verosimilitud (solo afecta marcadores <= 1-1)."""
+    import numpy as np
+
+    bajos = (goles_h <= 1) & (goles_a <= 1)
+    lh, la, gh, ga, w = lam_h[bajos], lam_a[bajos], goles_h[bajos], goles_a[bajos], pesos[bajos]
+    mejor_rho, mejor_ll = 0.0, -float("inf")
+    for rho in np.arange(-0.25, 0.2501, 0.01):
+        tau = np.where(
+            (gh == 0) & (ga == 0),
+            1 - lh * la * rho,
+            np.where((gh == 0) & (ga == 1), 1 + lh * rho, np.where((gh == 1) & (ga == 0), 1 + la * rho, 1 - rho)),
+        )
+        if np.any(tau <= 0):
+            continue
+        ll = float(np.sum(w * np.log(tau)))
+        if ll > mejor_ll:
+            mejor_ll, mejor_rho = ll, round(float(rho), 2)
+    return mejor_rho
+
+
+def ajustar_modelo(liga: str = "", hasta_fecha: datetime | None = None) -> ModeloDixonColes | None:
+    """
+    Ajusta ataque/defensa/localía por máxima verosimilitud Poisson con pesos
+    por recencia (actualizaciones multiplicativas alternadas) y luego rho.
+    Se cachea por (liga, día, huella de los datos) para no reajustar en cada
+    partido del pipeline ni del backtest.
+    """
+    import numpy as np
+    from django.utils import timezone
+
+    partidos = [p for p in _historial_finalizados(liga, hasta_fecha) if p.resultado.get("local") is not None]
+    if len(partidos) < 6:
+        return None
+    referencia = hasta_fecha or timezone.now()
+    # Huella de los datos (no solo la cantidad): si se corrige un resultado o
+    # cambia el conjunto de partidos con el mismo largo, el modelo se reajusta.
+    huella = hash(
+        tuple((p.pk, p.equipo_local_id, p.equipo_visitante_id, p.resultado.get("local"), p.resultado.get("visitante")) for p in partidos)
+    )
+    clave = (liga, referencia.date(), huella)
+    if clave in _cache_modelo:
+        return _cache_modelo[clave]
+
+    equipos = sorted({p.equipo_local_id for p in partidos} | {p.equipo_visitante_id for p in partidos})
+    indice = {e: k for k, e in enumerate(equipos)}
+    n = len(equipos)
+    H = np.array([indice[p.equipo_local_id] for p in partidos])
+    A = np.array([indice[p.equipo_visitante_id] for p in partidos])
+    valores = [_valor_ataque_defensa(p, es_local=True) for p in partidos]
+    GH = np.array([v[0] for v in valores], float)
+    GA = np.array([v[1] for v in valores], float)
+    dias = np.array([(referencia - p.fecha_hora).total_seconds() / 86400 for p in partidos])
+    W = np.exp(-np.log(2) / VIDA_MEDIA_DIAS * np.maximum(dias, 0))
+
+    ataque, defensa, localia = np.ones(n), np.ones(n), 1.3
+    mu = float(np.sum(W * (GH + GA)) / np.sum(W)) / 2
+    for _ in range(ITERACIONES_AJUSTE):
+        lam_h = mu * localia * ataque[H] * defensa[A]
+        lam_a = mu * ataque[A] * defensa[H]
+        ataque = (np.bincount(H, W * GH, n) + np.bincount(A, W * GA, n) + PRIOR_PARTIDOS) / (
+            np.bincount(H, W * lam_h / ataque[H], n) + np.bincount(A, W * lam_a / ataque[A], n) + PRIOR_PARTIDOS
+        )
+        lam_h = mu * localia * ataque[H] * defensa[A]
+        lam_a = mu * ataque[A] * defensa[H]
+        defensa = (np.bincount(A, W * GH, n) + np.bincount(H, W * GA, n) + PRIOR_PARTIDOS) / (
+            np.bincount(A, W * lam_h / defensa[A], n) + np.bincount(H, W * lam_a / defensa[H], n) + PRIOR_PARTIDOS
+        )
+        lam_h = mu * localia * ataque[H] * defensa[A]
+        localia *= float(np.sum(W * GH) / np.sum(W * lam_h))
+        ataque /= np.exp(np.mean(np.log(ataque)))
+        defensa /= np.exp(np.mean(np.log(defensa)))
+        lam_h = mu * localia * ataque[H] * defensa[A]
+        lam_a = mu * ataque[A] * defensa[H]
+        mu *= float(np.sum(W * (GH + GA)) / np.sum(W * (lam_h + lam_a)))
+
+    lam_h = mu * localia * ataque[H] * defensa[A]
+    lam_a = mu * ataque[A] * defensa[H]
+    rho = _ajustar_rho(lam_h, lam_a, np.round(GH), np.round(GA), W)
+    partidos_por_equipo = np.bincount(H, minlength=n) + np.bincount(A, minlength=n)
+
+    modelo = ModeloDixonColes(indice, ataque, defensa, partidos_por_equipo, localia, mu, rho)
+    if len(_cache_modelo) > 256:
+        _cache_modelo.clear()
+    _cache_modelo[clave] = modelo
+    return modelo
+
+
 def proyectar_xg(
     equipo_local_id: int, equipo_visitante_id: int, liga: str = "", hasta_fecha: datetime | None = None
 ) -> tuple[float, float] | None:
     """
-    Estima el xG esperado del próximo partido combinando el ataque de cada
-    equipo, la defensa del rival, y la ventaja de jugar de local. Retorna
-    None si a alguno de los dos le falta historial suficiente -- en ese caso
-    el predictor se abstiene en vez de inventar un número.
+    Goles esperados (local, visitante) según el modelo Dixon-Coles. Los ids
+    son pk de Equipo. Retorna None si a alguno le falta historial suficiente
+    -- el predictor se abstiene en vez de inventar un número.
 
-    `hasta_fecha`: ver `_historial_finalizados` -- para backtesting, calcula
-    el rating "como se veía" antes de esa fecha en vez de con todo el
-    historial disponible hoy.
+    `hasta_fecha`: ver `_historial_finalizados` -- para backtesting.
     """
-    ratings = calcular_ratings(liga, hasta_fecha)
-    local = ratings.get(equipo_local_id)
-    visitante = ratings.get(equipo_visitante_id)
-
-    if not local or not visitante:
+    modelo = ajustar_modelo(liga, hasta_fecha)
+    if modelo is None:
         return None
-    if local.partidos < MIN_PARTIDOS_PARA_RATING or visitante.partidos < MIN_PARTIDOS_PARA_RATING:
+    xg = modelo.xg(equipo_local_id, equipo_visitante_id)
+    if xg is None:
         return None
+    return round(xg[0], 3), round(xg[1], 3)
 
-    promedio_liga = sum(r.ataque for r in ratings.values()) / len(ratings)
-    if promedio_liga <= 0:
-        return None
 
-    factor_local, factor_visita = factor_localia(liga, hasta_fecha)
-
-    xg_local = local.ataque * factor_local * (visitante.defensa / promedio_liga)
-    xg_visitante = visitante.ataque * factor_visita * (local.defensa / promedio_liga)
-    return round(xg_local, 3), round(xg_visitante, 3)
+def rho_dixon_coles(liga: str = "", hasta_fecha: datetime | None = None) -> float:
+    """Corrección de marcadores bajos del modelo vigente (0.0 si no hay modelo)."""
+    modelo = ajustar_modelo(liga, hasta_fecha)
+    return modelo.rho if modelo else 0.0

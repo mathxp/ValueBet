@@ -33,44 +33,84 @@ def _poisson_pmf(k: int, lam: float) -> float:
     return math.exp(-lam) * (lam**k) / math.factorial(k)
 
 
-def probabilidades_1x2_por_poisson(xg_local: float, xg_visitante: float) -> dict[str, float]:
+def matriz_marcadores(xg_local: float, xg_visitante: float, rho: float = 0.0) -> list[list[float]]:
     """
-    Modelo de Poisson independiente: asume goles de cada equipo ~ Poisson(xG),
-    y suma la probabilidad conjunta de cada marcador posible para obtener
-    P(local gana), P(empate), P(visitante gana).
+    P(marcador = i-j) para i, j = 0..MAX_GOLES_SIMULADOS: Poisson
+    independiente con la corrección de Dixon-Coles para los marcadores bajos
+    (rho, ver ml_models/pipelines/team_ratings.py), renormalizada para sumar 1.
     """
     xg_local = max(xg_local, 0.01)
     xg_visitante = max(xg_visitante, 0.01)
-
-    prob_local, prob_empate, prob_visitante = 0.0, 0.0, 0.0
-    for goles_local in range(MAX_GOLES_SIMULADOS + 1):
-        p_local = _poisson_pmf(goles_local, xg_local)
-        for goles_visitante in range(MAX_GOLES_SIMULADOS + 1):
-            p_conjunta = p_local * _poisson_pmf(goles_visitante, xg_visitante)
-            if goles_local > goles_visitante:
-                prob_local += p_conjunta
-            elif goles_local == goles_visitante:
-                prob_empate += p_conjunta
-            else:
-                prob_visitante += p_conjunta
-
-    return {"LOCAL": prob_local, "EMPATE": prob_empate, "VISITANTE": prob_visitante}
+    pl = [_poisson_pmf(k, xg_local) for k in range(MAX_GOLES_SIMULADOS + 1)]
+    pv = [_poisson_pmf(k, xg_visitante) for k in range(MAX_GOLES_SIMULADOS + 1)]
+    m = [[pl[i] * pv[j] for j in range(MAX_GOLES_SIMULADOS + 1)] for i in range(MAX_GOLES_SIMULADOS + 1)]
+    if rho:
+        m[0][0] *= max(1 - xg_local * xg_visitante * rho, 0.0)
+        m[0][1] *= max(1 + xg_local * rho, 0.0)
+        m[1][0] *= max(1 + xg_visitante * rho, 0.0)
+        m[1][1] *= max(1 - rho, 0.0)
+    total = sum(map(sum, m))
+    return [[x / total for x in fila] for fila in m]
 
 
-def distribucion_goles_totales(xg_local: float, xg_visitante: float) -> dict[int, float]:
+def probabilidades_1x2_por_poisson(xg_local: float, xg_visitante: float, rho: float = 0.0) -> dict[str, float]:
+    """
+    P(local gana), P(empate), P(visitante gana) sumando la probabilidad de
+    cada marcador posible (Poisson + corrección Dixon-Coles si rho != 0).
+    """
+    m = matriz_marcadores(xg_local, xg_visitante, rho)
+    n = len(m)
+    local = sum(m[i][j] for i in range(n) for j in range(n) if i > j)
+    empate = sum(m[i][i] for i in range(n))
+    return {"LOCAL": local, "EMPATE": empate, "VISITANTE": max(1.0 - local - empate, 0.0)}
+
+
+def distribucion_goles_totales(xg_local: float, xg_visitante: float, rho: float = 0.0) -> dict[int, float]:
     """P(total de goles del partido == k) para k = 0..2*MAX_GOLES_SIMULADOS."""
-    xg_local = max(xg_local, 0.01)
-    xg_visitante = max(xg_visitante, 0.01)
-
+    m = matriz_marcadores(xg_local, xg_visitante, rho)
     distribucion: dict[int, float] = {}
-    for goles_local in range(MAX_GOLES_SIMULADOS + 1):
-        p_local = _poisson_pmf(goles_local, xg_local)
-        for goles_visitante in range(MAX_GOLES_SIMULADOS + 1):
-            total = goles_local + goles_visitante
-            distribucion[total] = distribucion.get(total, 0.0) + p_local * _poisson_pmf(
-                goles_visitante, xg_visitante
-            )
+    for i, fila in enumerate(m):
+        for j, p in enumerate(fila):
+            distribucion[i + j] = distribucion.get(i + j, 0.0) + p
     return distribucion
+
+
+SIMULACIONES_POR_PARTIDO = 10_000
+
+
+def simular_partido(xg_local: float, xg_visitante: float, rho: float = 0.0, n: int = SIMULACIONES_POR_PARTIDO, semilla: int = 0) -> dict:
+    """
+    Monte Carlo: juega el partido `n` veces muestreando marcadores de la
+    distribución del modelo y cuenta lo que pasó. Con 10.000 simulaciones el
+    error de muestreo es < 1 punto porcentual; la semilla fija (id del
+    partido) hace que el resultado no cambie entre recargas de la página.
+    """
+    import numpy as np
+
+    m = np.array(matriz_marcadores(xg_local, xg_visitante, rho))
+    tam = m.shape[0]
+    rng = np.random.default_rng(semilla)
+    muestras = rng.choice(tam * tam, size=n, p=m.ravel() / m.sum())
+    gl, gv = np.divmod(muestras, tam)
+
+    conteo_marcadores: dict[tuple[int, int], int] = {}
+    for a, b in zip(gl.tolist(), gv.tolist()):
+        conteo_marcadores[(a, b)] = conteo_marcadores.get((a, b), 0) + 1
+    top = sorted(conteo_marcadores.items(), key=lambda kv: kv[1], reverse=True)[:6]
+    total = gl + gv
+    return {
+        "simulaciones": n,
+        "victorias_local": int(np.sum(gl > gv)),
+        "empates": int(np.sum(gl == gv)),
+        "victorias_visitante": int(np.sum(gl < gv)),
+        "ambos_anotan": int(np.sum((gl > 0) & (gv > 0))),
+        "mas_de_1_5": int(np.sum(total > 1.5)),
+        "mas_de_2_5": int(np.sum(total > 2.5)),
+        "mas_de_3_5": int(np.sum(total > 3.5)),
+        "goles_promedio_local": round(float(gl.mean()), 2),
+        "goles_promedio_visitante": round(float(gv.mean()), 2),
+        "marcadores_frecuentes": [{"local": a, "visitante": b, "veces": c} for (a, b), c in top],
+    }
 
 
 def probabilidad_over(distribucion: dict[int, float], linea: float) -> float:
@@ -116,7 +156,7 @@ class MatchPredictor:
         goles = self.predecir_goles(partido)
         if goles is None:
             return None
-        return probabilidades_1x2_por_poisson(*goles)
+        return probabilidades_1x2_por_poisson(*goles, rho=partido.metricas_avanzadas.get("dc_rho", 0.0))
 
     def predecir_probabilidad_1x2(self, partido: Partido, seleccion: str) -> float | None:
         """
@@ -220,7 +260,7 @@ class MatchPredictor:
         goles = self.predecir_goles(partido)
         if goles is None:
             return None
-        distribucion = distribucion_goles_totales(*goles)
+        distribucion = distribucion_goles_totales(*goles, rho=partido.metricas_avanzadas.get("dc_rho", 0.0))
         probabilidad_cruda = probabilidad_over(distribucion, linea)
         return self._calibrar(f"OVER_UNDER_{linea}", probabilidad_cruda)
 

@@ -4,6 +4,37 @@ const api = axios.create({
   baseURL: "/api/",
 });
 
+// El backend (Render gratis) se duerme sin uso y tarda ~30-50 s en despertar.
+// La Pages Function ya reintenta; si aun así llega un 502/503/504, se reintenta
+// acá unas veces más y se avisa a la UI (ver components/AvisoDespertando.jsx).
+const REINTENTOS_MAX = 3;
+const ESPERA_MS = 5000;
+
+function avisarDespertando(activo) {
+  window.dispatchEvent(new CustomEvent("api-despertando", { detail: activo }));
+}
+
+api.interceptors.response.use(
+  (resp) => {
+    avisarDespertando(false);
+    return resp;
+  },
+  async (error) => {
+    const config = error.config;
+    const estado = error.response?.status;
+    const reintentable = !error.response || [502, 503, 504].includes(estado);
+    const esLectura = (config?.method ?? "get").toLowerCase() === "get";
+    if (config && reintentable && esLectura && (config.__intentos ?? 0) < REINTENTOS_MAX) {
+      config.__intentos = (config.__intentos ?? 0) + 1;
+      avisarDespertando(true);
+      await new Promise((r) => setTimeout(r, ESPERA_MS));
+      return api(config);
+    }
+    avisarDespertando(false);
+    return Promise.reject(error);
+  }
+);
+
 export const getPartidos = (params) => api.get("partidos/", { params }).then((r) => r.data);
 
 export const getOperaciones = (params) =>

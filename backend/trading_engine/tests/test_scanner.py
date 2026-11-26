@@ -217,7 +217,13 @@ class OddsScannerTests(TestCase):
         # EV aparente crece monótonamente hacia la línea más extrema, pero
         # todas dentro de un rango creíble (no disparan la alerta de edge
         # extremo por sí solas).
-        cuotas_por_linea = {"1.5": "1.15", "2.5": "1.30", "3.5": "1.50"}
+        # Derivadas de la probabilidad del propio modelo (EV +6%, +10%, +14%)
+        # para que la prueba no dependa de los números exactos de la proyección.
+        predictor = MatchPredictor()
+        cuotas_por_linea = {
+            linea: str(round((1 + extra) / predictor.predecir_probabilidad_over(self.partido, float(linea)), 2))
+            for linea, extra in (("1.5", 0.06), ("2.5", 0.10), ("3.5", 0.14))
+        }
         precios = [
             MarketPrice(
                 market_id=str(self.partido.id),

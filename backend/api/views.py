@@ -41,11 +41,11 @@ class EquipoViewSet(viewsets.ModelViewSet):
         from ml_models.pipelines.team_ratings import MIN_PARTIDOS_PARA_RATING, calcular_ratings
 
         ratings = calcular_ratings()
-        equipos_por_id = {e.api_football_id: e for e in Equipo.objects.all()}
+        equipos_por_id = {e.pk: e for e in Equipo.objects.all()}
 
         resultados = []
-        for api_football_id, rating in ratings.items():
-            equipo = equipos_por_id.get(api_football_id)
+        for equipo_id, rating in ratings.items():
+            equipo = equipos_por_id.get(equipo_id)
             if not equipo:
                 continue
             resultados.append(
@@ -671,7 +671,7 @@ class PronosticosView(APIView):
 
         from django.utils import timezone
 
-        from ml_models.predictor import MatchPredictor
+        from ml_models.predictor import MatchPredictor, simular_partido
 
         ahora = timezone.now()
         partidos = (
@@ -704,6 +704,9 @@ class PronosticosView(APIView):
             resultado.append(
                 {
                     "partido": PartidoSerializer(partido).data,
+                    "simulacion": simular_partido(
+                        goles[0], goles[1], rho=partido.metricas_avanzadas.get("dc_rho", 0.0), semilla=partido.id
+                    ),
                     "xg_local": round(goles[0], 2),
                     "xg_visitante": round(goles[1], 2),
                     "probabilidades": {k: round(v, 4) for k, v in p1x2.items()},

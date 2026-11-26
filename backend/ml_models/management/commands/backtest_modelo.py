@@ -27,7 +27,7 @@ from data_ingestion.tasks import LINEAS_OVER_UNDER_VALIDAS
 from db_models.models import CalibracionMercado, HistorialCuotas, Partido, ResultadoBacktest
 from ml_models.pipelines.calibracion import calcular_reporte, construir_curva_calibracion
 from ml_models.predictor import distribucion_goles_totales, probabilidad_over, probabilidades_1x2_por_poisson
-from ml_models.pipelines.team_ratings import proyectar_xg
+from ml_models.pipelines.team_ratings import proyectar_xg, rho_dixon_coles
 from trading_engine.risk_manager import evaluar_apuesta
 
 PRIOR_BASELINE = {"LOCAL": 0.45, "EMPATE": 0.27, "VISITANTE": 0.28}
@@ -85,18 +85,19 @@ class Command(BaseCommand):
                 continue
 
             proyeccion = proyectar_xg(
-                partido.equipo_local.api_football_id,
-                partido.equipo_visitante.api_football_id,
+                partido.equipo_local_id,
+                partido.equipo_visitante_id,
                 partido.liga,
                 hasta_fecha=partido.fecha_hora,
             )
+            rho = rho_dixon_coles(partido.liga, hasta_fecha=partido.fecha_hora)
             if proyeccion is None:
                 sin_historial_suficiente += 1
                 continue
 
             evaluados += 1
             xg_local, xg_visitante = proyeccion
-            probs_modelo = probabilidades_1x2_por_poisson(xg_local, xg_visitante)
+            probs_modelo = probabilidades_1x2_por_poisson(xg_local, xg_visitante, rho)
             resultado_real = _resultado_1x2(goles_local, goles_visita)
 
             for clase in ("LOCAL", "EMPATE", "VISITANTE"):
@@ -110,7 +111,7 @@ class Command(BaseCommand):
             aciertos_baseline += int(favorito_baseline == resultado_real)
             pares_favorito_modelo.append((probs_modelo[favorito_modelo], int(favorito_modelo == resultado_real)))
 
-            distribucion = distribucion_goles_totales(xg_local, xg_visitante)
+            distribucion = distribucion_goles_totales(xg_local, xg_visitante, rho)
             total_real = goles_local + goles_visita
             for linea in LINEAS_OVER_UNDER_AUDITADAS:
                 prob_over_linea = probabilidad_over(distribucion, float(linea))

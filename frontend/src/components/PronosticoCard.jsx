@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import TeamCrest from "./TeamCrest";
 import { etiquetaPronostico } from "../utils/format";
 import "./PronosticoCard.css";
@@ -21,9 +23,68 @@ function Pick({ titulo, pron, partido, destacado }) {
   );
 }
 
+const miles = (n) => n.toLocaleString("es-CL");
+
+function Simulacion({ sim, partido }) {
+  const n = sim.simulaciones;
+  const max = Math.max(...sim.marcadores_frecuentes.map((m) => m.veces));
+  const filas = [
+    [partido.equipo_local.nombre, sim.victorias_local, "local"],
+    ["Empate", sim.empates, "empate"],
+    [partido.equipo_visitante.nombre, sim.victorias_visitante, "visita"],
+  ];
+  return (
+    <div className="pron-sim">
+      <p className="pron-sim__titulo">
+        Partido simulado <strong>{miles(n)}</strong> veces
+      </p>
+      <div className="pron-sim__resultados">
+        {filas.map(([nombre, veces, tipo]) => (
+          <div key={tipo} className={`pron-sim__res pron-sim__res--${tipo}`}>
+            <span className="pron-sim__veces">{miles(veces)}</span>
+            <span className="pron-sim__nombre">{nombre}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="pron-sim__sub">Marcadores más repetidos</p>
+      <ul className="pron-sim__marcadores">
+        {sim.marcadores_frecuentes.map((m) => (
+          <li key={`${m.local}-${m.visitante}`}>
+            <span className="pron-sim__marcador">
+              {m.local}-{m.visitante}
+            </span>
+            <span className="pron-sim__bar">
+              <span style={{ width: `${(m.veces / max) * 100}%` }} />
+            </span>
+            <span className="pron-sim__pct">{((m.veces / n) * 100).toFixed(1)}%</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="pron-sim__extras">
+        <span>
+          Ambos anotan <strong>{Math.round((sim.ambos_anotan / n) * 100)}%</strong>
+        </span>
+        <span>
+          +2.5 goles <strong>{Math.round((sim.mas_de_2_5 / n) * 100)}%</strong>
+        </span>
+        <span>
+          Goles promedio{" "}
+          <strong>
+            {sim.goles_promedio_local} - {sim.goles_promedio_visitante}
+          </strong>
+        </span>
+      </div>
+      <p className="pron-sim__nota">Simulación del modelo de goles, sin cuotas del mercado.</p>
+    </div>
+  );
+}
+
 export default function PronosticoCard({ pronostico }) {
   const { partido, probabilidades: p } = pronostico;
   const fecha = new Date(partido.fecha_hora);
+  const [verSim, setVerSim] = useState(false);
 
   return (
     <article className="pron-card">
@@ -78,6 +139,15 @@ export default function PronosticoCard({ pronostico }) {
         <Pick titulo="Resultado" pron={pronostico.pronostico} partido={partido} />
         <Pick titulo="Goles" pron={pronostico.goles} partido={partido} />
       </div>
+
+      {pronostico.simulacion && (
+        <>
+          <button type="button" className="pron-card__toggle" onClick={() => setVerSim((v) => !v)} aria-expanded={verSim}>
+            {verSim ? "Ocultar simulación" : `Ver simulación (${miles(pronostico.simulacion.simulaciones)} partidos)`}
+          </button>
+          {verSim && <Simulacion sim={pronostico.simulacion} partido={partido} />}
+        </>
+      )}
     </article>
   );
 }

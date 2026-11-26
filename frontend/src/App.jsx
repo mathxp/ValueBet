@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 
 import "./App.css";
 import logoMark from "./assets/logo.svg";
+import AvisoDespertando from "./components/AvisoDespertando";
 import ThemeToggle from "./components/ThemeToggle";
 import Configuracion from "./pages/Configuracion";
 import Dashboard from "./pages/Dashboard";
@@ -112,6 +113,7 @@ export default function App() {
 
       <div className="app-content">
         <main className="app-main">
+          <AvisoDespertando />
           <Routes>
             <Route path="/" element={<Predicciones />} />
             <Route path="/dashboard" element={<Dashboard />} />

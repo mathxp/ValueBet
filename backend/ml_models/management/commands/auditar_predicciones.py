@@ -53,8 +53,8 @@ class Command(BaseCommand):
         self.stdout.write(f"\n=== {encabezado} ===")
 
         ratings = calcular_ratings(partido.liga)
-        local = ratings.get(partido.equipo_local.api_football_id)
-        visitante = ratings.get(partido.equipo_visitante.api_football_id)
+        local = ratings.get(partido.equipo_local_id)
+        visitante = ratings.get(partido.equipo_visitante_id)
         if not local or not visitante:
             self.stdout.write("  Sin rating suficiente para alguno de los dos equipos -- se omite.")
             return

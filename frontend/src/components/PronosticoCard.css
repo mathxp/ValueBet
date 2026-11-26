@@ -248,3 +248,147 @@
   background: color-mix(in srgb, var(--brand-cyan) 16%, transparent);
   color: var(--brand-cyan);
 }
+
+/* --- Simulación Monte Carlo ----------------------------------------------- */
+.pron-card__toggle {
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--brand-blue);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.pron-card__toggle:hover {
+  background: var(--surface-2);
+}
+
+.pron-sim {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.pron-sim__titulo,
+.pron-sim__sub,
+.pron-sim__nota {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pron-sim__sub {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pron-sim__nota {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pron-sim__resultados {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pron-sim__res {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  border-top: 3px solid var(--text-muted);
+  min-width: 0;
+}
+
+.pron-sim__res--local {
+  border-top-color: var(--brand-blue);
+}
+
+.pron-sim__res--visita {
+  border-top-color: var(--brand-cyan);
+}
+
+.pron-sim__veces {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pron-sim__nombre {
+  max-width: 100%;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pron-sim__marcadores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pron-sim__marcadores li {
+  display: grid;
+  grid-template-columns: 34px 1fr 42px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.pron-sim__marcador {
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pron-sim__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.pron-sim__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand-gradient);
+}
+
+.pron-sim__pct {
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pron-sim__extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pron-sim__extras strong {
+  color: var(--text-primary);
+}
