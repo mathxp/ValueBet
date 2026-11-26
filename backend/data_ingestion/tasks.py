@@ -113,6 +113,16 @@ def _upsert_partido(item: dict) -> tuple[Partido, bool]:
     if goles.get("home") is not None and goles.get("away") is not None:
         defaults["resultado"] = {"local": goles["home"], "visitante": goles["away"]}
 
+    if estado_anterior is None:
+        # El partido pudo haberse creado antes desde ESPN (data_ingestion/espn.py)
+        # sin api_football_id: adoptarlo en vez de duplicarlo.
+        Partido.objects.filter(
+            api_football_id__isnull=True,
+            equipo_local=equipo_local,
+            equipo_visitante=equipo_visitante,
+            temporada=defaults["temporada"],
+        ).update(api_football_id=fixture["id"])
+
     partido, _ = Partido.objects.update_or_create(
         api_football_id=fixture["id"], defaults=defaults
     )

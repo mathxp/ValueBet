@@ -1,166 +1,643 @@
+/* Ítems flex con min-width:auto se estiran al ancho de la tabla y desbordan
+   la página en el celular; con 0 la tabla scrollea dentro de su panel. */
+.tablas-page,
+.tablas-page > *,
+.tb-comp > * {
+  min-width: 0;
+}
+
 .tablas-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+  --oro: #e0a82e;
+  --oro-suave: color-mix(in srgb, var(--oro) 16%, transparent);
+  --descenso: var(--status-critical);
 }
 
-.tablas__tabs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.tablas__tabs button {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--gridline);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.tablas__tabs button:hover {
-  color: var(--text-primary);
-  background: var(--surface-2);
-}
-
-.tablas__tabs button.active {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-strong));
-}
-
-.tablas__campeon {
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--status-warning) 14%, var(--surface-1));
-  border: 1px solid color-mix(in srgb, var(--status-warning) 35%, transparent);
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.tablas__grupos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
-}
-
-.tablas__tabla td.tablas__num,
-.tablas__tabla th.tablas__num {
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.tablas__pos {
+.tb-muted {
   color: var(--text-muted);
-  width: 24px;
 }
 
-.tablas__pts {
+/* --- Tabs ------------------------------------------------------------------ */
+.tb-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  max-width: 100%;
+  overflow-x: auto;
+  align-self: flex-start;
+}
+
+.tb-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13.5px;
   font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.tablas__fila--clasifica td:first-child {
-  box-shadow: inset 3px 0 0 var(--brand-blue);
+.tb-tab:hover {
+  color: var(--text-primary);
 }
 
-.tablas__equipo {
+.tb-tab--activa {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.tb-tab__trofeo {
+  font-size: 12px;
+}
+
+/* --- Hero ------------------------------------------------------------------ */
+.tb-comp {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tb-hero {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 26px 28px;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  background:
+    radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.16), transparent 45%),
+    linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-blue-strong) 55%, #07391a 100%);
+  box-shadow: 0 18px 40px -20px color-mix(in srgb, var(--brand-blue) 80%, transparent);
+  overflow: hidden;
 }
 
-.tablas__escudo {
+.tb-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.035) 0 48px,
+    transparent 48px 96px
+  );
+  pointer-events: none;
+}
+
+.tb-hero--campeon {
+  background:
+    radial-gradient(circle at 85% 30%, color-mix(in srgb, var(--oro) 45%, transparent), transparent 50%),
+    linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-blue-strong) 55%, #07391a 100%);
+}
+
+.tb-hero__texto {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tb-hero__temporada {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.tb-hero__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.tb-hero__sub {
+  margin: 4px 0 0;
+  font-size: 15px;
+  opacity: 0.95;
+}
+
+.tb-escudo.tb-escudo--hero {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+}
+
+.team-crest-fallback.tb-escudo--hero {
+  font-size: 26px;
+  border: 3px solid rgba(255, 255, 255, 0.6);
+}
+
+/* --- Escudos ---------------------------------------------------------------- */
+.tb-escudo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.team-crest-fallback.tb-escudo {
+  font-size: 9px;
+}
+
+.tb-escudo--sm {
   width: 20px;
   height: 20px;
-  object-fit: contain;
 }
 
-.team-crest-fallback.tablas__escudo {
+.team-crest-fallback.tb-escudo--sm {
   font-size: 8px;
 }
 
-.tablas__badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--status-warning) 20%, transparent);
-  color: var(--status-warning);
+.tb-escudo--xl {
+  width: 52px;
+  height: 52px;
 }
 
-.tablas__llaves {
-  display: flex;
-  gap: 20px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+.team-crest-fallback.tb-escudo--xl {
+  font-size: 16px;
 }
 
-.tablas__ronda {
+/* --- Podio ------------------------------------------------------------------ */
+.tb-podio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.tb-podio__item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 210px;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
 }
 
-.tablas__ronda h3 {
-  margin: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
+.tb-podio__nombre {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.2;
 }
 
-.tablas__cruce {
-  border: 1px solid var(--gridline);
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  font-size: 13px;
-  background: var(--surface-1);
+.tb-podio__pts {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.tablas__cruce-equipo {
+.tb-podio__base {
+  width: 100%;
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px 12px 4px 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tb-podio__item--1 .tb-podio__base {
+  height: 86px;
+  background: linear-gradient(180deg, #f4c552, #c98d12);
+  box-shadow: 0 12px 26px -12px rgba(201, 141, 18, 0.8);
+}
+
+.tb-podio__item--2 .tb-podio__base {
+  height: 62px;
+  background: linear-gradient(180deg, #cfd6dd, #8d98a3);
+}
+
+.tb-podio__item--3 .tb-podio__base {
+  height: 46px;
+  background: linear-gradient(180deg, #d99a64, #9c5a26);
+}
+
+.tb-podio__item--1 .tb-escudo.tb-escudo--xl {
+  width: 64px;
+  height: 64px;
+}
+
+/* --- Paneles ----------------------------------------------------------------- */
+.tb-panel {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+.tb-panel__titulo {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.tb-panel--grupo {
+  padding: 14px;
+}
+
+.tb-seccion {
+  margin: 4px 0 -6px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.tb-grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+/* --- Tabla ------------------------------------------------------------------- */
+.tb-scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+}
+
+.tb-tabla {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-tabla th {
+  padding: 8px 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--gridline);
+  white-space: nowrap;
+}
+
+.tb-tabla td {
+  padding: 9px 6px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--gridline);
+  white-space: nowrap;
+}
+
+.tb-tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tb-tabla tbody tr {
+  transition: background 0.12s ease;
+}
+
+.tb-tabla tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.tb-tabla .tb-c {
+  text-align: center;
+}
+
+.tb-pos {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
   color: var(--text-secondary);
 }
 
-.tablas__cruce-equipo--gana {
+.tb-fila--campeon .tb-pos {
+  background: var(--oro);
+  color: #fff;
+}
+
+.tb-fila--campeon td {
+  background: var(--oro-suave);
+}
+
+.tb-fila--descenso .tb-pos {
+  background: var(--descenso);
+  color: #fff;
+}
+
+.tb-fila--descenso td {
+  background: color-mix(in srgb, var(--descenso) 7%, transparent);
+}
+
+.tb-fila--clasifica .tb-pos {
+  background: var(--brand-blue);
+  color: #fff;
+}
+
+.tb-equipo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tb-equipo__nombre {
   color: var(--text-primary);
   font-weight: 700;
 }
 
-.tablas__cruce-goles {
-  font-variant-numeric: tabular-nums;
+.tb-chip {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
-.tablas__cruce-detalle {
-  margin-top: 2px;
+.tb-chip--oro {
+  background: var(--oro-suave);
+  color: color-mix(in srgb, var(--oro) 80%, var(--text-primary));
+  border: 1px solid color-mix(in srgb, var(--oro) 45%, transparent);
+}
+
+.tb-dif {
+  font-weight: 700;
+}
+
+.tb-dif--pos {
+  color: var(--status-good);
+}
+
+.tb-dif--neg {
+  color: var(--status-critical);
+}
+
+.tb-pts {
+  display: inline-block;
+  min-width: 34px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.tb-fila--campeon .tb-pts {
+  background: var(--oro);
+  color: #fff;
+}
+
+.tb-forma {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.tb-forma__r {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tb-forma__r--G {
+  background: var(--status-good);
+}
+
+.tb-forma__r--E {
+  background: color-mix(in srgb, var(--text-muted) 85%, var(--surface-1));
+}
+
+.tb-forma__r--P {
+  background: var(--status-critical);
+}
+
+.tb-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tb-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tb-leyenda__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.tb-leyenda__dot--campeon {
+  background: var(--oro);
+}
+
+.tb-leyenda__dot--descenso {
+  background: var(--descenso);
+}
+
+.tb-leyenda__dot--clasifica {
+  background: var(--brand-blue);
+}
+
+/* --- Llaves ----------------------------------------------------------------- */
+.tb-bracket {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.tb-bracket__ronda {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  flex: 1;
+}
+
+.tb-bracket__titulo {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.tb-bracket__cruces {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 10px;
+  flex: 1;
+}
+
+.tb-cruce {
+  position: relative;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.tb-cruce--pendiente {
+  border-style: dashed;
+  background: transparent;
+}
+
+.tb-cruce__equipo {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.tb-cruce__nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-cruce__goles {
+  min-width: 22px;
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border-radius: 6px;
+  padding: 1px 4px;
+}
+
+.tb-cruce__equipo--gana {
+  font-weight: 800;
+}
+
+.tb-cruce__equipo--gana .tb-cruce__goles {
+  background: var(--brand-blue);
+  color: #fff;
+}
+
+.tb-cruce__equipo--pierde {
+  color: var(--text-muted);
+}
+
+.tb-cruce__detalle {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--gridline);
   font-size: 11px;
   color: var(--text-muted);
 }
 
-.tablas__fuente {
+.tb-bracket__ronda--campeon {
+  min-width: 170px;
+  flex: 0.7;
+}
+
+.tb-trofeo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding: 18px 12px;
+  border-radius: var(--radius-lg);
+  text-align: center;
+  background: linear-gradient(160deg, var(--oro-suave), transparent);
+  border: 1px solid color-mix(in srgb, var(--oro) 45%, transparent);
+  color: var(--text-primary);
+}
+
+.tb-trofeo--vacio {
+  border-style: dashed;
+  background: transparent;
+}
+
+.tb-trofeo__icono {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.tb-fuente {
   margin: 0;
   font-size: 12px;
   color: var(--text-muted);
 }
 
-.tablas__fuente a {
+.tb-fuente a {
   color: var(--brand-blue);
+  font-weight: 600;
+}
+
+/* --- Responsive --------------------------------------------------------------- */
+@media (max-width: 860px) {
+  .tb-hide-md {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
-  .tablas__ocultable {
+  .tb-hide-sm {
     display: none;
   }
 
-  .tablas__grupos {
+  .tb-hero {
+    padding: 20px;
+  }
+
+  .tb-escudo.tb-escudo--hero {
+    width: 60px;
+    height: 60px;
+  }
+
+  .tb-grupos {
     grid-template-columns: 1fr;
+  }
+
+  .tb-podio__nombre {
+    font-size: 12px;
+  }
+
+  .tb-panel {
+    padding: 14px 10px;
   }
 }

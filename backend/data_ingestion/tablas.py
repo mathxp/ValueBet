@@ -67,6 +67,7 @@ def tabla_espn(slug: str) -> tuple[dict, str, str]:
                     "gc": int(s.get("pointsAgainst") or 0),
                     "dif": int(s.get("pointDifferential") or 0),
                     "nota": (entry.get("note") or {}).get("description", ""),
+                    "logo_espn": ((entry["team"].get("logos") or [{}])[0]).get("href", ""),
                 }
             )
         filas.sort(key=lambda f: f["pos"])
@@ -252,6 +253,51 @@ def tabla_wikipedia(pagina: str) -> tuple[dict, str]:
 
 
 # ----------------------------------------------------------------------- orquestador
+def _forma(equipo, temporada: str) -> list[str]:
+    """Últimos 5 resultados de liga (más reciente al final): G / E / P."""
+    from django.db.models import Q
+
+    from db_models.models import Partido
+
+    partidos = (
+        Partido.objects.filter(
+            Q(equipo_local=equipo) | Q(equipo_visitante=equipo),
+            temporada=temporada,
+            estado=Partido.Estado.FINALIZADO,
+        )
+        .order_by("-fecha_hora")[:5]
+    )
+    forma = []
+    for p in reversed(list(partidos)):
+        gl, gv = p.resultado.get("local"), p.resultado.get("visitante")
+        if gl is None or gv is None:
+            continue
+        propios, rivales = (gl, gv) if p.equipo_local_id == equipo.id else (gv, gl)
+        forma.append("G" if propios > rivales else "E" if propios == rivales else "P")
+    return forma
+
+
+def _enriquecer(datos: dict, temporada: str, es_liga: bool) -> None:
+    """Guarda escudos nuevos, busca los que faltan y agrega la forma (solo liga)."""
+    from data_ingestion.equipos import Resolver
+
+    resolver = Resolver()
+    nombres = []
+    for grupo in datos["grupos"]:
+        for fila in grupo["filas"]:
+            resolver.guardar_logo(fila["equipo"], fila.pop("logo_espn", ""))
+            nombres.append(fila["equipo"])
+    for llave in datos["llaves"]:
+        nombres += [llave["local"], llave["visitante"]]
+    resolver.buscar_logos_faltantes(nombres)
+
+    if es_liga:
+        for grupo in datos["grupos"]:
+            for fila in grupo["filas"]:
+                equipo = resolver.equipo(fila["equipo"])
+                fila["forma"] = _forma(equipo, temporada) if equipo else []
+
+
 def actualizar_tablas() -> dict[str, str]:
     """Refresca las 3 competiciones. Si una fuente falla, deja la última versión guardada."""
     year = timezone.localdate().year
@@ -265,6 +311,7 @@ def actualizar_tablas() -> dict[str, str]:
                 temporada = str(year)
             if not datos["grupos"] and not datos["llaves"]:
                 raise ValueError("la fuente no trajo tablas")
+            _enriquecer(datos, temporada or str(year), es_liga="espn" in comp)
             TablaCompeticion.objects.update_or_create(
                 slug=comp["slug"],
                 defaults={

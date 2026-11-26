@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 
 import "./App.css";
 import logoMark from "./assets/logo-mark.png";
+import ThemeToggle from "./components/ThemeToggle";
 import Configuracion from "./pages/Configuracion";
 import Dashboard from "./pages/Dashboard";
 import Equipos from "./pages/Equipos";
@@ -101,6 +102,8 @@ export default function App() {
             <span>Configuración</span>
           </NavLink>
         </nav>
+
+        <ThemeToggle />
 
         <p className="app-sidebar__disclaimer">
           Herramienta de apoyo a la decisión. No ejecuta apuestas ni garantiza resultados.

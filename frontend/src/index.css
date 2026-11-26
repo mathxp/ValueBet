@@ -53,8 +53,8 @@
   --font-display: "Manrope", "Inter", system-ui, sans-serif;
 }
 
-/* Oscuro: no se usa hoy (no hay selector de tema en la app), queda como
-   opción guardada por si en algún momento se agrega uno. */
+/* Oscuro: se activa con el botón de tema del sidebar (components/ThemeToggle.jsx);
+   por defecto sigue la preferencia del sistema (ver script en index.html). */
 :root[data-theme="dark"] {
   color-scheme: dark;
 

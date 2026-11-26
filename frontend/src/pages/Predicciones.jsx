@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import Card from "../components/Card";
 import CombinadasList from "../components/CombinadasList";
-import InfoBox from "../components/InfoBox";
-import MatchCard from "../components/MatchCard";
 import MejorApuestaCard from "../components/MejorApuestaCard";
 import PartidoCell from "../components/PartidoCell";
-import { getAnalisis, getCombinadas, getPartidos, getPrediccion } from "../services/api";
-import { formatMercado, formatOdds, formatPercent, formatSeleccion } from "../utils/format";
+import PronosticoCard from "../components/PronosticoCard";
+import TeamCrest from "../components/TeamCrest";
+import { getAnalisis, getCombinadas, getPronosticos } from "../services/api";
+import { etiquetaPronostico, formatMercado, formatOdds, formatPercent, formatSeleccion } from "../utils/format";
 
 // Igual que LINEAS_OVER_UNDER_VALIDAS en el backend -- un mercado retirado
 // (ej. la línea 4.5) no debe poder "ganar" el puesto de mejor apuesta con un
@@ -30,29 +30,19 @@ const MERCADOS_VIGENTES = new Set([
 const PROBABILIDAD_MINIMA_DESTACADA = 0.6;
 
 export default function Predicciones() {
-  const [partidos, setPartidos] = useState([]);
-  const [predicciones, setPredicciones] = useState({});
-  const [loadingPartidos, setLoadingPartidos] = useState(true);
-  const [errorPartidos, setErrorPartidos] = useState(null);
+  const [pronosticos, setPronosticos] = useState([]);
+  const [loadingPron, setLoadingPron] = useState(true);
+  const [errorPron, setErrorPron] = useState(null);
 
   const [analisis, setAnalisis] = useState([]);
   const [combinadas, setCombinadas] = useState([]);
   const [loadingRecom, setLoadingRecom] = useState(true);
 
   useEffect(() => {
-    getPartidos({ estado: "SCHEDULED" })
-      .then((data) => {
-        const lista = (data.results ?? data)
-          .slice()
-          .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora))
-          .slice(0, 12);
-        setPartidos(lista);
-
-        return Promise.all(lista.map((p) => getPrediccion(p.id).then((pred) => [p.id, pred])));
-      })
-      .then((entradas) => setPredicciones(Object.fromEntries(entradas ?? [])))
-      .catch((err) => setErrorPartidos(err.message))
-      .finally(() => setLoadingPartidos(false));
+    getPronosticos()
+      .then(setPronosticos)
+      .catch((err) => setErrorPron(err.message))
+      .finally(() => setLoadingPron(false));
 
     // Solo las que tienen valor -- el detalle completo (incluidos los NO BET,
     // para auditar el modelo) y el historial de aceptadas/descartadas viven
@@ -106,20 +96,72 @@ export default function Predicciones() {
       .sort((a, b) => b.probabilidad_seleccion - a.probabilidad_seleccion);
   }, [analisisVigente, mejorApuesta]);
 
+  // Los 3 pronósticos más probables de la fecha ("X gana o empata").
+  const masSeguros = useMemo(
+    () =>
+      [...pronosticos]
+        .sort((a, b) => b.doble_oportunidad.probabilidad - a.doble_oportunidad.probabilidad)
+        .slice(0, 3),
+    [pronosticos]
+  );
+
   return (
     <div className="predicciones-page">
       <header className="page-header">
-        <h1>Predicciones — Primera División de Chile</h1>
+        <h1>Predicciones</h1>
         <p className="page-header__subtitle">
-          Entrá y sabé altiro a quién apostarle. Es apoyo para decidir, no ejecuta ninguna
-          apuesta.
+          Lo más probable de cada partido de la próxima fecha, según el modelo.
         </p>
       </header>
 
-      {!loadingRecom && <MejorApuestaCard analisis={mejorApuesta} />}
+      {loadingPron && <p className="page-status">Cargando...</p>}
+      {errorPron && <p className="page-status page-status--error">Error: {errorPron}</p>}
+
+      {masSeguros.length > 0 && (
+        <section>
+          <h2 className="seccion-titulo">🔒 Los más seguros de la fecha</h2>
+          <div className="pron-top">
+            {masSeguros.map((x, i) => (
+              <div key={x.partido.id} className="pron-top__item">
+                <span className="pron-top__rank">#{i + 1} más probable</span>
+                <div className="pron-top__partido">
+                  <TeamCrest equipo={x.partido.equipo_local} />
+                  <span>{x.partido.equipo_local.nombre}</span>
+                  <span>vs</span>
+                  <span>{x.partido.equipo_visitante.nombre}</span>
+                  <TeamCrest equipo={x.partido.equipo_visitante} />
+                </div>
+                <span className="pron-top__pick">{etiquetaPronostico(x.doble_oportunidad, x.partido)}</span>
+                <span className="pron-top__prob">{formatPercent(x.doble_oportunidad.probabilidad)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!loadingRecom && mejorApuesta && <MejorApuestaCard analisis={mejorApuesta} />}
+
+      {!loadingPron && !errorPron && (
+        <section>
+          <h2 className="seccion-titulo">Todos los partidos</h2>
+          {pronosticos.length === 0 ? (
+            <p className="page-status">No hay partidos próximos con pronóstico todavía.</p>
+          ) : (
+            <div className="pron-grid">
+              {pronosticos.map((x) => (
+                <PronosticoCard key={x.partido.id} pronostico={x} />
+              ))}
+            </div>
+          )}
+          <p className="pron-nota">
+            Probabilidades calibradas con los resultados reales de temporadas anteriores. Son
+            estimaciones, no certezas: el fútbol siempre tiene sorpresas.
+          </p>
+        </section>
+      )}
 
       {!loadingRecom && otrasRecomendaciones.length > 0 && (
-        <Card title="Otras recomendaciones de valor">
+        <Card title="Apuestas con valor (cuota mejor que la probabilidad real)">
           <div className="recom-simple-list">
             {otrasRecomendaciones.map((a) => (
               <div key={a.id} className="recom-simple-item">
@@ -133,7 +175,6 @@ export default function Predicciones() {
                 <div className="recom-simple-item__numeros">
                   <span>{formatPercent(a.probabilidad_seleccion)}</span>
                   <span>{formatOdds(a.cuota_mercado)}</span>
-                  <span className={a.ev >= 0 ? "is-positive" : "is-negative"}>{formatPercent(a.ev)}</span>
                 </div>
               </div>
             ))}
@@ -142,52 +183,10 @@ export default function Predicciones() {
       )}
 
       {!loadingRecom && combinadas.length > 0 && (
-        <Card title="Combinadas sugeridas (máx. 3 patas)">
+        <Card title="Combinadas sugeridas">
           <CombinadasList combinadas={combinadas} onCambiarCombinada={handleCambiarCombinada} />
         </Card>
       )}
-
-      {loadingPartidos && <p className="page-status">Cargando...</p>}
-      {errorPartidos && <p className="page-status page-status--error">Error: {errorPartidos}</p>}
-      {!loadingPartidos && !errorPartidos && (
-        <>
-          {partidos.length === 0 ? (
-            <p className="page-status">
-              No hay partidos próximos cargados todavía. Corré{" "}
-              <code>python manage.py run_pipeline_once</code> para sincronizarlos.
-            </p>
-          ) : (
-            <div className="match-grid">
-              {partidos.map((partido) => (
-                <MatchCard key={partido.id} partido={partido} prediccion={predicciones[partido.id]} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      <InfoBox title="¿Qué son los Goles Esperados Proyectados y de dónde salen?">
-        <p>
-          <strong>Goles Esperados Proyectados</strong> (a veces llamado <strong>xG</strong> en la
-          jerga del fútbol) es una estimación de cuántos goles debería anotar cada equipo según su
-          rendimiento real reciente, no según el resultado de un solo partido puntual.{" "}
-          <strong>
-            No es el xG oficial (el que se calcula analizando la calidad de cada tiro) — acá no
-            tenemos ese dato para esta liga
-          </strong>{" "}
-          (ver <strong>Equipos</strong> para el detalle del rating detrás de cada proyección).
-        </p>
-        <p>
-          Se calcula con un <strong>rating de ataque y defensa por equipo</strong>, construido a
-          partir de los goles reales marcados y recibidos en sus últimos partidos (hasta 15),
-          comparado contra el promedio de la liga. Ninguno de los dos números es una certeza —
-          son estimaciones estadísticas, no un pronóstico garantizado.
-        </p>
-        <p>
-          El análisis completo de cada mercado (incluidos los que no tienen valor) y el historial
-          de recomendaciones aceptadas/descartadas están en <strong>Dashboard</strong>.
-        </p>
-      </InfoBox>
     </div>
   );
 }

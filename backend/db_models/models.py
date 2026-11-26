@@ -588,3 +588,19 @@ class TablaCompeticion(models.Model):
 
     def __str__(self):
         return f"{self.nombre} {self.temporada}"
+
+
+class LogoEquipo(models.Model):
+    """
+    Escudos por nombre normalizado, para equipos que aparecen en las tablas
+    (p. ej. Primera B en Copa Chile) pero no existen en Equipo. Se llena desde
+    ESPN y, una sola vez por equipo, con la búsqueda de api-football.
+    logo_url vacío = ya se buscó y no se encontró (no volver a gastar cuota).
+    """
+
+    nombre = models.CharField(max_length=150, unique=True)
+    logo_url = models.URLField(blank=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.nombre

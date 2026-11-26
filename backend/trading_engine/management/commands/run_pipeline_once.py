@@ -36,10 +36,20 @@ class Command(BaseCommand):
             total_fixtures += fetch_upcoming_fixtures(league_id=league_id)
         self.stdout.write(f"Fixtures sincronizados: {total_fixtures}")
 
+        # ESPN rellena resultados/fixtures que api-football (ventana +-1 día) no ve.
+        from data_ingestion.espn import sincronizar_reciente
+
+        try:
+            self.stdout.write(f"Resultados ESPN: {sincronizar_reciente()}")
+        except Exception as exc:  # noqa: BLE001 -- ESPN caído no debe frenar el resto
+            self.stderr.write(f"ESPN no disponible: {exc}")
+
         refresh_odds_for_live_window(minutes_ahead=horas * 60)
         self.stdout.write("Cuotas actualizadas para partidos dentro de la ventana")
 
-        actualizados = project_xg_for_upcoming_matches(hours_ahead=horas)
+        # La proyección es local (sin API): se calcula para 2 semanas, así la
+        # página de Pronósticos muestra la fecha completa y no solo las próximas 24h.
+        actualizados = project_xg_for_upcoming_matches(hours_ahead=max(horas, 24 * 14))
         self.stdout.write(f"xG proyectado para {actualizados} partido(s) (0 es normal si aún no hay historial)")
 
         operaciones = scan_market_odds(minutes_ahead=horas * 60)

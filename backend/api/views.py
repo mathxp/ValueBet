@@ -624,47 +624,23 @@ class ConfiguracionView(APIView):
 
 
 # --- Tablas de posiciones (Liga / Copa Chile / Copa de la Liga) ----------------
-def _normalizar_equipo(nombre: str) -> str:
-    import unicodedata
-
-    s = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode().lower()
-    s = s.replace("-", " ").replace(".", "").replace("'", "")
-    return " ".join(s.split())
-
-
-# Nombre en ESPN/Wikipedia -> nombre normalizado de Equipo en la base.
-_ALIAS_EQUIPOS = {
-    "audax italiano": "a italiano",
-    "universidad catolica": "u catolica",
-    "everton": "everton de vina",
-    "everton cd": "everton de vina",
-    "la serena": "d la serena",
-    "deportes la serena": "d la serena",
-    "deportes concepcion": "concepcion",
-}
-
-
 class TablasView(APIView):
     """GET: tablas de posiciones y llaves de las competiciones (ver data_ingestion/tablas.py)."""
 
     def get(self, request):
-        from db_models.models import Equipo, TablaCompeticion
+        from data_ingestion.equipos import Resolver
+        from db_models.models import TablaCompeticion
 
-        logos = {
-            _normalizar_equipo(e.nombre): e.logo_url
-            for e in Equipo.objects.exclude(logo_url="").only("nombre", "logo_url")
-        }
-
-        def logo(nombre):
-            n = _normalizar_equipo(nombre)
-            return logos.get(_ALIAS_EQUIPOS.get(n, n), "")
-
+        resolver = Resolver()
         resultado = []
         for tabla in TablaCompeticion.objects.all():
             datos = tabla.datos
             for grupo in datos.get("grupos", []):
                 for fila in grupo.get("filas", []):
-                    fila["logo_url"] = logo(fila["equipo"])
+                    fila["logo_url"] = resolver.logo(fila["equipo"])
+            for llave in datos.get("llaves", []):
+                llave["logo_local"] = resolver.logo(llave["local"])
+                llave["logo_visitante"] = resolver.logo(llave["visitante"])
             resultado.append(
                 {
                     "slug": tabla.slug,
@@ -673,6 +649,76 @@ class TablasView(APIView):
                     "fuente": tabla.fuente,
                     "actualizado_en": tabla.actualizado_en,
                     **datos,
+                }
+            )
+        return Response(resultado)
+
+
+# --- Pronósticos: lo más probable de cada partido próximo ---------------------
+class PronosticosView(APIView):
+    """
+    GET: para cada partido de liga de los próximos 14 días, las probabilidades
+    calibradas (ver ml_models/predictor.py) y el pronóstico más probable en
+    tres mercados simples: resultado (1X2), doble oportunidad y goles (±2.5).
+    No depende de que haya cuotas cargadas: sirve para "¿quién gana?", no para
+    buscar valor (eso sigue en las recomendaciones VALUE_BET).
+    """
+
+    VENTANA_DIAS = 14
+
+    def get(self, request):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from ml_models.predictor import MatchPredictor
+
+        ahora = timezone.now()
+        partidos = (
+            Partido.objects.filter(
+                estado=Partido.Estado.PROGRAMADO,
+                fecha_hora__gte=ahora,
+                fecha_hora__lte=ahora + timedelta(days=self.VENTANA_DIAS),
+            )
+            .select_related("equipo_local", "equipo_visitante")
+            .order_by("fecha_hora")
+        )
+
+        predictor = MatchPredictor()
+        resultado = []
+        for partido in partidos:
+            goles = predictor.predecir_goles(partido)
+            if goles is None:
+                continue
+
+            p1x2 = {s: predictor.predecir_probabilidad_1x2(partido, s) for s in ("LOCAL", "EMPATE", "VISITANTE")}
+            if None in p1x2.values():
+                continue
+            total = sum(p1x2.values()) or 1.0
+            p1x2 = {s: p / total for s, p in p1x2.items()}  # calibradas por separado -> renormalizar
+            dobles = {"1X": p1x2["LOCAL"] + p1x2["EMPATE"], "X2": p1x2["EMPATE"] + p1x2["VISITANTE"], "12": p1x2["LOCAL"] + p1x2["VISITANTE"]}
+            p_over = predictor.predecir_probabilidad_over(partido, 2.5)
+
+            ganador = max(p1x2, key=p1x2.get)
+            # Doble oportunidad que cubre al favorito ("gana o empata"), no "12".
+            doble = {"LOCAL": "1X", "VISITANTE": "X2"}.get(ganador) or max(("1X", "X2"), key=dobles.get)
+            resultado.append(
+                {
+                    "partido": PartidoSerializer(partido).data,
+                    "xg_local": round(goles[0], 2),
+                    "xg_visitante": round(goles[1], 2),
+                    "probabilidades": {k: round(v, 4) for k, v in p1x2.items()},
+                    "pronostico": {"mercado": "1X2", "seleccion": ganador, "probabilidad": round(p1x2[ganador], 4)},
+                    "doble_oportunidad": {"mercado": "DOBLE_OPORTUNIDAD", "seleccion": doble, "probabilidad": round(dobles[doble], 4)},
+                    "goles": (
+                        {
+                            "mercado": "OVER_UNDER_2.5",
+                            "seleccion": "OVER" if p_over >= 0.5 else "UNDER",
+                            "probabilidad": round(max(p_over, 1 - p_over), 4),
+                        }
+                        if p_over is not None
+                        else None
+                    ),
                 }
             )
         return Response(resultado)

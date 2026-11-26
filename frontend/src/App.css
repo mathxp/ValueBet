@@ -125,6 +125,7 @@
     position: sticky;
     top: 0;
     z-index: 10;
+    flex: none; /* en escritorio flex-basis es el ancho (248px); en columna se volvía alto */
     height: auto;
     width: 100%;
     flex-direction: row;
@@ -493,7 +494,8 @@
   margin-bottom: 14px;
 }
 
-.historial-filtros select {
+.historial-filtros select,
+.dashboard__filtro {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -505,7 +507,8 @@
   cursor: pointer;
 }
 
-.historial-filtros select:focus {
+.historial-filtros select:focus,
+.dashboard__filtro:focus {
   outline: none;
   border-color: var(--brand-blue);
   box-shadow: var(--shadow-focus);
@@ -523,4 +526,58 @@
 
 .historial-filtros__limpiar:hover {
   text-decoration: underline;
+}
+
+/* --- Selector de tema ------------------------------------------------------ */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.theme-toggle svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+@media (max-width: 860px) {
+  .theme-toggle {
+    width: auto;
+    margin-left: auto;
+    padding: 8px 10px;
+  }
+
+  .theme-toggle span {
+    display: none;
+  }
+}
+
+.seccion-titulo {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.dashboard-page .pagination {
+  justify-content: center;
+  margin-top: 14px;
 }

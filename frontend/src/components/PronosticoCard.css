@@ -1,0 +1,232 @@
+.pron-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.pron-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pron-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.pron-card__fecha {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.pron-card__equipos {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.pron-card__equipo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.pron-card__escudo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.team-crest-fallback.pron-card__escudo {
+  font-size: 13px;
+}
+
+.pron-card__vs {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.pron-barra {
+  display: flex;
+  height: 24px;
+  border-radius: 999px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pron-barra__seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pron-barra__seg--local {
+  background: var(--brand-blue);
+}
+
+.pron-barra__seg--empate {
+  background: color-mix(in srgb, var(--text-muted) 75%, var(--surface-1));
+}
+
+.pron-barra__seg--visita {
+  background: #2563eb;
+}
+
+.pron-barra__leyenda {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.pron-card__picks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pron-pick {
+  display: grid;
+  grid-template-columns: 82px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.pron-pick__titulo {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.pron-pick__texto {
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pron-pick__prob {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pron-pick--alta .pron-pick__prob {
+  color: var(--status-good);
+}
+
+.pron-pick--media .pron-pick__prob {
+  color: var(--status-warning);
+}
+
+.pron-pick--baja .pron-pick__prob {
+  color: var(--text-secondary);
+}
+
+.pron-pick--destacado {
+  background: color-mix(in srgb, var(--brand-blue) 12%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--brand-blue) 30%, transparent);
+}
+
+/* --- Top "más seguros" -------------------------------------------------- */
+.pron-top {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.pron-top__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-strong));
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--brand-blue) 70%, transparent);
+  overflow: hidden;
+}
+
+.pron-top__item::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pron-top__rank {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.pron-top__partido {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.pron-top__partido .team-crest-fallback,
+.pron-top__partido img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.pron-top__pick {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.pron-top__prob {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pron-nota {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}

@@ -78,3 +78,16 @@ export function formatDateTime(value) {
     minute: "2-digit",
   });
 }
+
+// Texto con nombres de equipo para un pronóstico de /api/pronosticos/.
+export function etiquetaPronostico(pron, partido) {
+  const local = partido.equipo_local.nombre;
+  const visita = partido.equipo_visitante.nombre;
+  if (pron.mercado === "1X2") {
+    return { LOCAL: `Gana ${local}`, VISITANTE: `Gana ${visita}`, EMPATE: "Empate" }[pron.seleccion];
+  }
+  if (pron.mercado === "DOBLE_OPORTUNIDAD") {
+    return { "1X": `${local} o empate`, X2: `${visita} o empate`, 12: "No hay empate" }[pron.seleccion];
+  }
+  return pron.seleccion === "OVER" ? "Más de 2.5 goles" : "Menos de 2.5 goles";
+}
