@@ -560,3 +560,31 @@ class Combinada(models.Model):
         self.pnl = None
         self.estado = self.Estado.ACEPTADA
         self.save(update_fields=["pnl", "estado", "actualizado_en"])
+
+
+class TablaCompeticion(models.Model):
+    """
+    Tabla de posiciones (y llaves de eliminación, si las hay) de una
+    competición, tal como la publica la fuente externa. Se guarda como JSON
+    porque solo se muestra: no alimenta al modelo de predicción.
+    Se refresca con `python manage.py actualizar_tablas` (ver data_ingestion/tablas.py).
+    """
+
+    slug = models.SlugField(max_length=40, unique=True)
+    nombre = models.CharField(max_length=100)
+    temporada = models.CharField(max_length=20)
+    orden = models.PositiveSmallIntegerField(default=0)
+    # {"grupos": [{"nombre", "filas": [{pos, equipo, pts, pj, g, e, p, gf, gc, dif, nota}]}],
+    #  "llaves": [{"ronda", "local", "visitante", "global_local", "global_visitante", "detalle", "ganador"}],
+    #  "campeon": str | None}
+    datos = models.JSONField(default=dict)
+    fuente = models.URLField()
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["orden"]
+        verbose_name = "tabla de competición"
+        verbose_name_plural = "tablas de competiciones"
+
+    def __str__(self):
+        return f"{self.nombre} {self.temporada}"

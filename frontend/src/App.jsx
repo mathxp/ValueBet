@@ -6,6 +6,7 @@ import Configuracion from "./pages/Configuracion";
 import Dashboard from "./pages/Dashboard";
 import Equipos from "./pages/Equipos";
 import Predicciones from "./pages/Predicciones";
+import Tablas from "./pages/Tablas";
 
 function IconoIndicador() {
   return (
@@ -34,6 +35,18 @@ function IconoDashboard() {
       <rect x="14" y="3" width="7" height="5" rx="1" />
       <rect x="14" y="12" width="7" height="9" rx="1" />
       <rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function IconoTablas() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <path d="M17 6h3v2a3 3 0 0 1-3 3" />
+      <path d="M7 6H4v2a3 3 0 0 0 3 3" />
     </svg>
   );
 }
@@ -75,6 +88,10 @@ export default function App() {
             <IconoDashboard />
             <span>Dashboard</span>
           </NavLink>
+          <NavLink to="/tablas">
+            <IconoTablas />
+            <span>Tablas</span>
+          </NavLink>
           <NavLink to="/equipos">
             <IconoEquipos />
             <span>Equipos</span>
@@ -95,6 +112,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Predicciones />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/tablas" element={<Tablas />} />
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/configuracion" element={<Configuracion />} />
           </Routes>

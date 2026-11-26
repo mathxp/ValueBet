@@ -621,3 +621,58 @@ class ConfiguracionView(APIView):
             )
             else "PAPER",
         }
+
+
+# --- Tablas de posiciones (Liga / Copa Chile / Copa de la Liga) ----------------
+def _normalizar_equipo(nombre: str) -> str:
+    import unicodedata
+
+    s = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode().lower()
+    s = s.replace("-", " ").replace(".", "").replace("'", "")
+    return " ".join(s.split())
+
+
+# Nombre en ESPN/Wikipedia -> nombre normalizado de Equipo en la base.
+_ALIAS_EQUIPOS = {
+    "audax italiano": "a italiano",
+    "universidad catolica": "u catolica",
+    "everton": "everton de vina",
+    "everton cd": "everton de vina",
+    "la serena": "d la serena",
+    "deportes la serena": "d la serena",
+    "deportes concepcion": "concepcion",
+}
+
+
+class TablasView(APIView):
+    """GET: tablas de posiciones y llaves de las competiciones (ver data_ingestion/tablas.py)."""
+
+    def get(self, request):
+        from db_models.models import Equipo, TablaCompeticion
+
+        logos = {
+            _normalizar_equipo(e.nombre): e.logo_url
+            for e in Equipo.objects.exclude(logo_url="").only("nombre", "logo_url")
+        }
+
+        def logo(nombre):
+            n = _normalizar_equipo(nombre)
+            return logos.get(_ALIAS_EQUIPOS.get(n, n), "")
+
+        resultado = []
+        for tabla in TablaCompeticion.objects.all():
+            datos = tabla.datos
+            for grupo in datos.get("grupos", []):
+                for fila in grupo.get("filas", []):
+                    fila["logo_url"] = logo(fila["equipo"])
+            resultado.append(
+                {
+                    "slug": tabla.slug,
+                    "nombre": tabla.nombre,
+                    "temporada": tabla.temporada,
+                    "fuente": tabla.fuente,
+                    "actualizado_en": tabla.actualizado_en,
+                    **datos,
+                }
+            )
+        return Response(resultado)

@@ -50,3 +50,8 @@ class Command(BaseCommand):
 
         resueltos = reconciliar_analisis()
         self.stdout.write(f"Análisis reconciliados con resultado real: {resueltos}")
+
+        from data_ingestion.tablas import actualizar_tablas
+
+        tablas = actualizar_tablas()
+        self.stdout.write("Tablas de posiciones: " + ", ".join(f"{k}={v}" for k, v in tablas.items()))

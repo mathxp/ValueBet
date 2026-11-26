@@ -72,3 +72,5 @@ export const actualizarConfiguracionRiesgo = (cambios) =>
   api.patch("config/", cambios).then((r) => r.data);
 
 export default api;
+
+export const getTablas = () => api.get("tablas/").then((r) => r.data);

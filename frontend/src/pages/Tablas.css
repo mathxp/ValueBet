@@ -1,0 +1,166 @@
+.tablas-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tablas__tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tablas__tabs button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gridline);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tablas__tabs button:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+.tablas__tabs button.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-strong));
+}
+
+.tablas__campeon {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--status-warning) 14%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--status-warning) 35%, transparent);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.tablas__grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.tablas__tabla td.tablas__num,
+.tablas__tabla th.tablas__num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.tablas__pos {
+  color: var(--text-muted);
+  width: 24px;
+}
+
+.tablas__pts {
+  font-weight: 700;
+}
+
+.tablas__fila--clasifica td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand-blue);
+}
+
+.tablas__equipo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tablas__escudo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.team-crest-fallback.tablas__escudo {
+  font-size: 8px;
+}
+
+.tablas__badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-warning) 20%, transparent);
+  color: var(--status-warning);
+}
+
+.tablas__llaves {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tablas__ronda {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 210px;
+}
+
+.tablas__ronda h3 {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.tablas__cruce {
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--surface-1);
+}
+
+.tablas__cruce-equipo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  color: var(--text-secondary);
+}
+
+.tablas__cruce-equipo--gana {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.tablas__cruce-goles {
+  font-variant-numeric: tabular-nums;
+}
+
+.tablas__cruce-detalle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tablas__fuente {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tablas__fuente a {
+  color: var(--brand-blue);
+}
+
+@media (max-width: 600px) {
+  .tablas__ocultable {
+    display: none;
+  }
+
+  .tablas__grupos {
+    grid-template-columns: 1fr;
+  }
+}

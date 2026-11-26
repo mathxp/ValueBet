@@ -13,5 +13,6 @@ router.register(r"combinadas", views.CombinadaViewSet)
 
 urlpatterns = [
     path("config/", views.ConfiguracionView.as_view(), name="configuracion"),
+    path("tablas/", views.TablasView.as_view(), name="tablas"),
     path("", include(router.urls)),
 ]
